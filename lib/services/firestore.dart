@@ -1,8 +1,12 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dieren_ketting/model/user_model.dart';
 import 'package:flutter/cupertino.dart';
 
 class StoreMethods {
+  Random random = new Random();
+
   Future<bool> checkForDocument(String collection, String docId) async {
     final doc = await FirebaseFirestore.instance
         .collection(collection)
@@ -20,7 +24,7 @@ class StoreMethods {
         .set({
       "userName": userName,
       "uid": uid,
-      "alive": "true",
+      "alive": "TRUE",
       "lastAnswer": "",
       "score": 0,
     });
@@ -70,7 +74,7 @@ class StoreMethods {
         .collection("members")
         .doc(currentUser.uid)
         .update({
-      "alive": "false",
+      "alive": "FALSE",
     });
     await FirebaseFirestore.instance.collection("rooms").doc(pin).update({
       "currentPlayer": nextUser.uid,
@@ -82,6 +86,73 @@ class StoreMethods {
     await FirebaseFirestore.instance.collection("rooms").doc(pin).update({
       "currentPlayer": newCurrentPlayer.uid,
     });
+    return true;
+  }
+
+  Future<String> createGame() async {
+    String pin = "";
+    for (int i = 0; i < 6; i++) {
+      int t = random.nextInt(10);
+      pin += t.toString();
+    }
+    assert(pin.length == 6);
+    bool exists = await checkForDocument("rooms", pin);
+    if (exists) {
+      return await createGame();
+    }
+    await FirebaseFirestore.instance
+        .collection("rooms")
+        .doc(pin.toString())
+        .set({
+      "currentPlayer": "NONE",
+      "currentWord": "NONE",
+      "started": "FALSE",
+      "winner": "NONE",
+      "order": "NONE",
+    });
+    return pin.toString();
+  }
+
+  Future<bool> startGame(String pin, List<String> order) async {
+    await FirebaseFirestore.instance.collection("rooms").doc(pin).update({
+      "started": "TRUE",
+      "order": order.join('|'),
+    });
+    return true;
+  }
+
+  Future<bool> restartGame(String pin, List<UserModel> users) async {
+    await FirebaseFirestore.instance.collection("rooms").doc(pin).update({
+      "currentWord": "NONE",
+      "currentPlayer": "NONE",
+      "winner": "NONE",
+      "started": "FALSE",
+    });
+
+    for (var user in users) {
+      if (!user.alive || user.score != 0) {
+        await FirebaseFirestore.instance
+            .collection("rooms")
+            .doc(pin)
+            .collection("members")
+            .doc(user.uid)
+            .update({
+          "alive": "TRUE",
+          "lastAnswer": "NONE",
+          "score": 0,
+        });
+      }
+    }
+
+    var words = await FirebaseFirestore.instance
+        .collection("rooms")
+        .doc(pin)
+        .collection("words")
+        .get();
+    for (var word in words.docs) {
+      await word.reference.delete();
+    }
+
     return true;
   }
 }

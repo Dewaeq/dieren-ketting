@@ -1,42 +1,64 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dieren_ketting/model/constants.dart';
 import 'package:dieren_ketting/model/user_model.dart';
 import 'package:dieren_ketting/services/firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:oktoast/oktoast.dart';
+
+import 'components/clock.dart';
+import 'components/member.dart';
+import 'components/word.dart';
 
 class GameScreen extends StatefulWidget {
   final String pin;
   final UserModel currentUser;
+  final bool isHost;
 
-  const GameScreen({Key key, this.pin, this.currentUser}) : super(key: key);
+  const GameScreen({Key key, this.pin, this.currentUser, this.isHost})
+      : super(key: key);
   @override
   _GameScreenState createState() => _GameScreenState(
         pin: pin,
         currentUser: currentUser,
+        isHost: isHost,
       );
 }
 
 class _GameScreenState extends State<GameScreen> {
   final String pin;
   final UserModel currentUser;
+  final bool isHost;
 
   final TextEditingController wordController = TextEditingController();
   final formKey = GlobalKey<FormState>();
 
   _GameScreenState({
-    @required this.pin,
-    @required this.currentUser,
+    this.pin,
+    this.currentUser,
+    this.isHost,
   });
 
   List<UserModel> users = [];
   bool _enabled = true, _playing = false, _started = false, _won = false;
   Stream<DocumentSnapshot> stream;
   int score = 0;
-  Map<String, List<String>> allWords = {
-    "words": [],
-    "answerers": [],
-  };
+  List<String> allWords = [];
+  List<String> order = [];
+
+  startGame() async {
+    await StoreMethods().restartGame(pin, users);
+
+    List<String> uids = [];
+    for (var user in users) {
+      uids.add(user.uid);
+    }
+    uids.shuffle(new Random());
+    order = uids;
+
+    await StoreMethods().startGame(pin, order);
+  }
 
   setCurrentPlayer(UserModel newCurrentPlayer) async {
     await StoreMethods().setCurrentPlayer(newCurrentPlayer, pin);
@@ -44,18 +66,17 @@ class _GameScreenState extends State<GameScreen> {
 
   submitWord() async {
     score++;
-    var alive = users.where((element) => element.alive == true).toList();
-    var myIndex = alive.lastIndexWhere(
+
+    var nextUser = getNewPlayer();
+
+    /* var myIndex = alive.lastIndexWhere(
       (element) => element.uid == currentUser.uid,
     );
     int nextIndex = myIndex + 1;
-    print("my name: ${currentUser.userName}");
-    print("max length: ${alive.length}");
-    print("next index: $nextIndex");
     if (myIndex == alive.length - 1) {
       nextIndex = 0;
     }
-    var nextUser = alive[nextIndex];
+    var nextUser = alive[nextIndex]; */
     var word = wordController.text.toUpperCase();
 
     await StoreMethods().submitWord(
@@ -65,11 +86,16 @@ class _GameScreenState extends State<GameScreen> {
       currentUser: currentUser,
       nextUser: nextUser,
     );
+    wordController.text = "";
+  }
+
+  restartGame() async {
+    await StoreMethods().restartGame(pin, users);
   }
 
   dontKnowWord() async {
     print("didnt know word");
-    var alive = users.where((element) => element.alive == true).toList();
+    /*var alive = users.where((element) => element.alive == true).toList();
     var myIndex = alive.lastIndexWhere(
       (element) => element.uid == currentUser.uid,
     );
@@ -77,7 +103,9 @@ class _GameScreenState extends State<GameScreen> {
     if (myIndex == alive.length - 1) {
       nextIndex = 0;
     }
-    var nextUser = alive[nextIndex];
+    var nextUser = alive[nextIndex]; */
+    var alive = users.where((element) => element.alive == true).toList();
+    var nextUser = getNewPlayer();
 
     var others = alive;
     others.removeWhere((element) => element.uid == currentUser.uid);
@@ -88,7 +116,7 @@ class _GameScreenState extends State<GameScreen> {
           .collection("members")
           .doc(currentUser.uid)
           .update({
-        "alive": "false",
+        "alive": "FALSE",
       });
       await FirebaseFirestore.instance.collection("rooms").doc(pin).update({
         "winner": others[0].uid,
@@ -105,6 +133,61 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
+  UserModel getNewPlayer() {
+    var dead = users.where((e) => e.alive == false).toList();
+    List<String> deadUids = [];
+    for (var user in dead) {
+      deadUids.add(user.uid);
+    }
+    order.removeWhere((e) => deadUids.contains(e) && e != currentUser.uid);
+
+    int myIndex = order.indexOf(currentUser.uid);
+    int newIndex = myIndex + 1;
+    if (newIndex == order.length) {
+      newIndex = 0;
+    }
+    var newUid = order[newIndex];
+    var newUser = users.firstWhere((e) => e.uid == newUid);
+    if (!currentUser.alive) {
+      order.remove(currentUser.uid);
+    }
+    return newUser;
+
+    /* print(users.length);
+    if (users.length == 2) {
+      print("length == 2");
+      var valid = users.firstWhere((element) => element.uid != currentUser.uid);
+      return valid;
+    }
+    var alive = users.where((element) => element.alive == true).toList();
+
+    var maxScore = 0;
+    for (var user in alive) {
+      if (user.score > maxScore) {
+        maxScore = user.score;
+      }
+    }
+    Random random = new Random();
+    var nextUser = UserModel();
+
+    var valid = alive
+        .where((element) =>
+            element.score < maxScore && element.uid != currentUser.uid)
+        .toList();
+    if (valid.length == 0) {
+      print("valid = 0");
+      var toChooseFrom =
+          alive.where((element) => element.uid != currentUser.uid).toList();
+
+      int ranIndex = random.nextInt(toChooseFrom.length);
+      nextUser = toChooseFrom[ranIndex];
+    } else {
+      int ranIndex = random.nextInt(valid.length);
+      nextUser = valid[ranIndex];
+    }
+    return nextUser; */
+  }
+
   Widget members() {
     return StreamBuilder(
         stream: FirebaseFirestore.instance
@@ -113,7 +196,6 @@ class _GameScreenState extends State<GameScreen> {
             .collection("members")
             .snapshots(),
         builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
-          print("updating");
           if (!snapshot.hasData) {
             return Center(
               child: CircularProgressIndicator(),
@@ -143,36 +225,40 @@ class _GameScreenState extends State<GameScreen> {
                 .compareTo(b.data()['userName'].toString().toLowerCase());
           }); */
           var newDocs = alive + dead;
+          List<UserModel> oldUsers = users;
           List<UserModel> toAdd = [];
-
-          for (var i = 0; i < newDocs.length; i++) {
+          List<String> toRemove = [];
+          for (int i = 0; i < newDocs.length; i++) {
             var user = UserModel.fromMap(newDocs[i].data());
-            var inUsers = users.firstWhere(
-              (element) =>
-                  element.uid == user.uid && element.alive == user.alive,
-              orElse: () => new UserModel(userName: "error"),
-            );
-            var inToAdd = toAdd.firstWhere(
-              (element) =>
-                  element.uid == user.uid && element.alive == user.alive,
-              orElse: () => new UserModel(userName: "error"),
-            );
-            if (inToAdd.userName == "error" && inUsers.userName == "error") {
+            if (oldUsers.firstWhere((e) => e.uid == user.uid,
+                    orElse: () => null) !=
+                null) {
+              var oldUser = oldUsers.firstWhere((e) => e.uid == user.uid);
+              if (oldUser.alive != user.alive) {
+                toAdd.add(user);
+                toRemove.add(user.uid);
+              } else if (oldUser.score < user.score) {
+                toAdd.add(user);
+                toRemove.add(user.uid);
+              }
+            }
+            if (oldUsers.firstWhere((e) => e.uid == user.uid,
+                    orElse: () => null) ==
+                null) {
               toAdd.add(user);
             }
           }
           if (toAdd.length > 0) {
+            print("setting users");
             WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {
-                  print("setting state");
-                  users = users + toAdd;
+                  users.removeWhere((e) => toRemove.contains(e.uid));
+                  users += toAdd;
                 }));
           }
-
           return ListView.builder(
-            itemCount: newDocs.length,
+            itemCount: users.length,
             itemBuilder: (context, index) {
-              var user = UserModel.fromMap(newDocs[index].data());
-              return Member(user: user);
+              return Member(user: users[index]);
             },
           );
         });
@@ -212,6 +298,28 @@ class _GameScreenState extends State<GameScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 65),
               ),
+              SizedBox(height: 80),
+              isHost
+                  ? FlatButton(
+                      color: Colors.amber,
+                      height: 70,
+                      minWidth: 250,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Text(
+                        "Restart Game",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 24,
+                        ),
+                      ),
+                      onPressed: () {
+                        restartGame();
+                      },
+                    )
+                  : Container()
             ],
           );
         }
@@ -226,11 +334,13 @@ class _GameScreenState extends State<GameScreen> {
         if (currentPlayer.uid == currentUser.uid && !_playing) {
           WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {
                 _playing = true;
+                _enabled = true;
               }));
         }
         if (currentPlayer.uid != currentUser.uid && _playing) {
           WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {
                 _playing = false;
+                _enabled = false;
               }));
         }
         return Column(
@@ -276,11 +386,12 @@ class _GameScreenState extends State<GameScreen> {
                             validator: (value) {
                               var lastLetter =
                                   word[word.length - 1].toUpperCase();
+                              if (word == "NONE" && value.length > 0)
+                                return null;
                               if (value.length == 0) return "Voer een dier in";
                               if (value[0].toUpperCase() != lastLetter)
                                 return "Voer een geldig dier in";
-                              if (allWords['words']
-                                  .contains(value.toUpperCase()))
+                              if (allWords.contains(value.toUpperCase()))
                                 return "Dit dier is al gezegd";
                               return value.length > 0
                                   ? null
@@ -375,22 +486,25 @@ class _GameScreenState extends State<GameScreen> {
           for (var i = 0; i < docs.length; i++) {
             var word =
                 snapshot.data.docs[i].data()['word'].toString().toUpperCase();
-            if (!toAdd.contains(word) && !allWords['words'].contains(word)) {
+            if (!toAdd.contains(word) && !allWords.contains(word)) {
               toAdd.add(word);
             }
           }
           if (toAdd.length > 0) {
             WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {
-                  print("setting words state");
-                  allWords['words'] += toAdd;
+                  print("setting words");
+                  allWords += toAdd;
                 }));
           }
 
           return ListView.builder(
-            itemCount: allWords['words'].length,
+            itemCount: allWords.length,
             itemBuilder: (context, index) {
-              var word = allWords['words'].reversed.toList()[index];
-              return Word(word: word);
+              var word = allWords.reversed.toList()[index];
+              return Word(
+                word: word,
+                index: allWords.length - index,
+              );
             },
           );
         });
@@ -402,7 +516,25 @@ class _GameScreenState extends State<GameScreen> {
     stream =
         FirebaseFirestore.instance.collection("rooms").doc(pin).snapshots();
     stream.listen((event) {
+      String orderString = event.data()['order'];
+      if (orderString == "NONE") {
+        WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {
+              order.clear();
+            }));
+      } else {
+        List<String> newOrder = orderString.split('|');
+        if (newOrder != order) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {
+                order = newOrder;
+              }));
+        }
+      }
       bool started = event.data()['started'] == "TRUE";
+      if (!_started) {
+        _enabled = false;
+        _playing = false;
+        allWords = [];
+      }
       if (started != _started) {
         WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {
               _started = started;
@@ -458,6 +590,19 @@ class _GameScreenState extends State<GameScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        Text(
+                          "Code:",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 34),
+                        ),
+                        Text(
+                          pin,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 65),
+                        ),
+                        SizedBox(height: 80),
                         SizedBox(
                           height: 90,
                           width: 90,
@@ -474,151 +619,47 @@ class _GameScreenState extends State<GameScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        SizedBox(height: 90),
+                        isHost
+                            ? FlatButton(
+                                color: Colors.amber,
+                                height: 70,
+                                minWidth: 250,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                child: Text(
+                                  "Start Game",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 24,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  if (users.length > 1) {
+                                    startGame();
+                                  } else {
+                                    showToast(
+                                      'You need to be with at least 2 players, current: ${users.length}',
+                                      duration: Duration(seconds: 3),
+                                      position: ToastPosition.center,
+                                      backgroundColor: Colors.grey,
+                                      radius: 7,
+                                      textStyle: TextStyle(
+                                        fontSize: 24,
+                                        color: Colors.white,
+                                      ),
+                                    );
+                                  }
+                                },
+                              )
+                            : Container(),
                       ],
                     ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class Member extends StatelessWidget {
-  final UserModel user;
-
-  const Member({
-    Key key,
-    this.user,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: user.alive ? redAccentColor : Colors.red[200],
-                  shape: BoxShape.circle,
-                ),
-                child: user.alive
-                    ? Container()
-                    : Icon(
-                        Icons.clear,
-                        size: 32,
-                        color: Colors.red[800],
-                      ),
-              ),
-              Text(
-                user.userName[0].toUpperCase(),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(width: 15),
-          Text(
-            user.userName,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class Word extends StatelessWidget {
-  final String word;
-
-  const Word({Key key, this.word}) : super(key: key);
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      child: Text(word),
-    );
-  }
-}
-
-class Clock extends StatefulWidget {
-  final Function timeUp;
-
-  const Clock({Key key, @required this.timeUp}) : super(key: key);
-  @override
-  _ClockState createState() => _ClockState(timeUp: timeUp);
-}
-
-class _ClockState extends State<Clock> {
-  final Function timeUp;
-  Timer _timer;
-  int _max = 20;
-  int _start;
-  bool done = false;
-
-  _ClockState({this.timeUp});
-
-  @override
-  void initState() {
-    _start = _max;
-    const oneSec = const Duration(seconds: 1);
-    _timer = new Timer.periodic(oneSec, (Timer timer) {
-      if (_start == 0) {
-        timeUp();
-        setState(() {
-          done = true;
-          timer.cancel();
-        });
-      } else {
-        setState(() {
-          _start--;
-        });
-      }
-    });
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Size size = MediaQuery.of(context).size;
-    return Container(
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          SizedBox(
-            height: size.height * 0.1,
-            width: size.height * 0.1,
-            child: CircularProgressIndicator(
-              strokeWidth: 4,
-              valueColor: AlwaysStoppedAnimation<Color>(backgroundColor),
-              value: _start / _max,
-            ),
-          ),
-          Text(
-            done ? "Tijd is om" : _start.toString(),
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
       ),
     );
   }

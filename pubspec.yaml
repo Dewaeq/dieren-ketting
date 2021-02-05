@@ -24,7 +24,8 @@ dependencies:
   flutter:
     sdk: flutter
 
-  uuid: ^2.2.2
+  uuid: 
+  oktoast: 
 
   cloud_firestore: ^0.16.0
   firebase_core: ^0.7.0

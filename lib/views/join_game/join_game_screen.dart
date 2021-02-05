@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dieren_ketting/model/constants.dart';
 import 'package:dieren_ketting/model/user_model.dart';
 import 'package:dieren_ketting/services/firestore.dart';
@@ -9,19 +8,23 @@ import '../../main.dart';
 
 class JoinGameScreen extends StatefulWidget {
   final String pin;
+  final bool isHost;
 
-  const JoinGameScreen({Key key, this.pin}) : super(key: key);
+  const JoinGameScreen({Key key, this.pin, this.isHost}) : super(key: key);
   @override
-  _JoinGameScreenState createState() => _JoinGameScreenState(pin: pin);
+  _JoinGameScreenState createState() =>
+      _JoinGameScreenState(pin: pin, isHost: isHost);
 }
 
 class _JoinGameScreenState extends State<JoinGameScreen> {
   final String pin;
+  final bool isHost;
 
-  _JoinGameScreenState({@required this.pin});
+  _JoinGameScreenState({this.pin, this.isHost});
 
   final formKey = GlobalKey<FormState>();
   TextEditingController nameController = TextEditingController();
+  bool _loading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -75,31 +78,43 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(30),
               ),
-              child: Text(
-                "Submit",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
-                ),
-              ),
-              onPressed: () async {
-                if (formKey.currentState.validate()) {
-                  var uid = Uuid().v4();
-                  await StoreMethods()
-                      .joinGame(pin, nameController.text.trim(), uid);
-                  var currentUser = new UserModel(
-                      alive: true,
-                      userName: nameController.text.trim(),
-                      uid: uid,
-                      lastAnswer: "");
-                  var args = new Map<String, dynamic>();
-                  args['pin'] = pin;
-                  args['currentUser'] = currentUser;
-                  navigatorKey.currentState
-                      .pushNamed("/gameScreen", arguments: args);
-                }
-              },
+              child: _loading
+                  ? CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    )
+                  : Text(
+                      "Submit",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24,
+                      ),
+                    ),
+              onPressed: _loading
+                  ? () {}
+                  : () async {
+                      if (formKey.currentState.validate()) {
+                        setState(() {
+                          _loading = true;
+                        });
+                        print("submitting");
+                        var uid = Uuid().v4();
+                        await StoreMethods()
+                            .joinGame(pin, nameController.text.trim(), uid);
+                        var currentUser = new UserModel(
+                            alive: true,
+                            userName: nameController.text.trim(),
+                            uid: uid,
+                            lastAnswer: "");
+                        var args = {
+                          "pin": pin,
+                          "currentUser": currentUser,
+                          "isHost": isHost,
+                        };
+                        navigatorKey.currentState
+                            .pushNamed("/gameScreen", arguments: args);
+                      }
+                    },
             ),
           ],
         ),

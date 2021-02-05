@@ -2,6 +2,7 @@ import 'package:dieren_ketting/routes/route_generator.dart';
 import 'package:dieren_ketting/views/sign_up/sign_up_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:oktoast/oktoast.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -30,16 +31,18 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Flutter Demo',
-      navigatorKey: navigatorKey,
-      theme: ThemeData(
-        fontFamily: "ProductSans",
-        primarySwatch: Colors.grey,
+    return OKToast(
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Flutter Demo',
+        navigatorKey: navigatorKey,
+        theme: ThemeData(
+          fontFamily: "ProductSans",
+          primarySwatch: Colors.grey,
+        ),
+        onGenerateRoute: RouteGenerator.generateRoute,
+        home: SignUpScreen(),
       ),
-      onGenerateRoute: RouteGenerator.generateRoute,
-      home: SignUpScreen(),
     );
   }
 }

@@ -10,10 +10,12 @@ class RouteGenerator {
 
     switch (settings.name) {
       case "/joinRoom":
-        if (args is String) {
+        if (args is Map<String, dynamic>) {
+          print(args['isHost']);
           return MaterialPageRoute(
             builder: (context) => JoinGameScreen(
-              pin: args,
+              pin: args['pin'],
+              isHost: args['isHost'],
             ),
           );
         }
@@ -24,6 +26,7 @@ class RouteGenerator {
             builder: (context) => GameScreen(
               currentUser: args['currentUser'],
               pin: args['pin'],
+              isHost: args['isHost'],
             ),
           );
         }
