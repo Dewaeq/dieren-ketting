@@ -1,6 +1,7 @@
 import 'package:dieren_ketting/model/user_model.dart';
 import 'package:dieren_ketting/views/game/game_screen.dart';
 import 'package:dieren_ketting/views/join_game/join_game_screen.dart';
+import 'package:dieren_ketting/views/sign_up/sign_up_screen.dart';
 import 'package:flutter/material.dart';
 
 class RouteGenerator {
@@ -9,11 +10,16 @@ class RouteGenerator {
     final args = settings.arguments;
 
     switch (settings.name) {
+      case "/signUp":
+        return MaterialPageRoute(
+          builder: (_) => SignUpScreen(),
+        );
+
       case "/joinRoom":
         if (args is Map<String, dynamic>) {
           print(args['isHost']);
           return MaterialPageRoute(
-            builder: (context) => JoinGameScreen(
+            builder: (_) => JoinGameScreen(
               pin: args['pin'],
               isHost: args['isHost'],
             ),
@@ -23,7 +29,7 @@ class RouteGenerator {
       case "/gameScreen":
         if (args is Map<String, dynamic>) {
           return MaterialPageRoute(
-            builder: (context) => GameScreen(
+            builder: (_) => GameScreen(
               currentUser: args['currentUser'],
               pin: args['pin'],
               isHost: args['isHost'],
@@ -44,7 +50,7 @@ class RouteGenerator {
 
   static Route<dynamic> errorRoute() {
     return MaterialPageRoute(
-      builder: (context) {
+      builder: (_) {
         return Scaffold(
           body: Center(
             child: Text(
@@ -62,7 +68,7 @@ class RouteGenerator {
 
   static Route<dynamic> loadingRoute() {
     return MaterialPageRoute(
-      builder: (context) {
+      builder: (_) {
         return Scaffold(
           body: Column(
             mainAxisAlignment: MainAxisAlignment.center,

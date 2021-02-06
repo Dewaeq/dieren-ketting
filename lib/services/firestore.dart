@@ -115,6 +115,7 @@ class StoreMethods {
 
   Future<bool> startGame(String pin, List<String> order) async {
     await FirebaseFirestore.instance.collection("rooms").doc(pin).update({
+      "currentPlayer": order[0],
       "started": "TRUE",
       "order": order.join('|'),
     });
@@ -153,6 +154,16 @@ class StoreMethods {
       await word.reference.delete();
     }
 
+    return true;
+  }
+
+  Future<bool> kickUser(String pin, UserModel toKick) async {
+    await FirebaseFirestore.instance
+        .collection("rooms")
+        .doc(pin)
+        .collection("members")
+        .doc(toKick.uid)
+        .delete();
     return true;
   }
 }

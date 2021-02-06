@@ -4,39 +4,58 @@ import 'package:flutter/material.dart';
 
 class Member extends StatelessWidget {
   final UserModel user;
+  final UserModel currentUser;
+  final Function(UserModel toKick) kick;
+  final bool isHost;
 
   const Member({
     Key key,
     this.user,
+    this.currentUser,
+    this.kick,
+    this.isHost,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        mainAxisSize: MainAxisSize.max,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Stack(
-            alignment: Alignment.center,
+          Row(
+            mainAxisSize: MainAxisSize.max,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: user.alive ? redAccentColor : Colors.red[200],
-                  shape: BoxShape.circle,
-                ),
-                child: user.alive
-                    ? Container()
-                    : Icon(
-                        Icons.clear,
-                        size: 32,
-                        color: Colors.red[800],
-                      ),
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: user.alive ? redAccentColor : Colors.red[200],
+                      shape: BoxShape.circle,
+                    ),
+                    child: user.alive
+                        ? Container()
+                        : Icon(
+                            Icons.clear,
+                            size: 32,
+                            color: Colors.red[800],
+                          ),
+                  ),
+                  Text(
+                    user.userName[0].toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
+              SizedBox(width: 15),
               Text(
-                user.userName[0].toUpperCase(),
+                user.userName,
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -44,14 +63,30 @@ class Member extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(width: 15),
-          Text(
-            user.userName,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          isHost && user.uid != currentUser.uid
+              ? Container(
+                  width: 50,
+                  height: 50,
+                  child: FlatButton(
+                    onPressed: () {
+                      kick(user);
+                    },
+                    shape: CircleBorder(),
+                    padding: EdgeInsets.zero,
+                    color: backgroundColor,
+                    child: Center(
+                      child: Text(
+                        "KICK",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              : Container(),
         ],
       ),
     );

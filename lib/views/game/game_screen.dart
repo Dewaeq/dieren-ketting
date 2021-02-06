@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dieren_ketting/main.dart';
 import 'package:dieren_ketting/model/constants.dart';
 import 'package:dieren_ketting/model/user_model.dart';
 import 'package:dieren_ketting/services/firestore.dart';
@@ -41,11 +42,21 @@ class _GameScreenState extends State<GameScreen> {
   });
 
   List<UserModel> users = [];
-  bool _enabled = true, _playing = false, _started = false, _won = false;
+  UserModel currentPlayer;
+  bool _enabled = true, _playing = false, _started = false, _kicked = false;
   Stream<DocumentSnapshot> stream;
   int score = 0;
   List<String> allWords = [];
   List<String> order = [];
+
+  kick(UserModel toKick) async {
+    if (currentPlayer != null && currentPlayer.uid == toKick.uid) {
+      var newCurrentPlayer = getNewPlayer();
+      await setCurrentPlayer(newCurrentPlayer);
+    }
+    print("kicking");
+    await StoreMethods().kickUser(pin, toKick);
+  }
 
   startGame() async {
     await StoreMethods().restartGame(pin, users);
@@ -68,15 +79,6 @@ class _GameScreenState extends State<GameScreen> {
     score++;
 
     var nextUser = getNewPlayer();
-
-    /* var myIndex = alive.lastIndexWhere(
-      (element) => element.uid == currentUser.uid,
-    );
-    int nextIndex = myIndex + 1;
-    if (myIndex == alive.length - 1) {
-      nextIndex = 0;
-    }
-    var nextUser = alive[nextIndex]; */
     var word = wordController.text.toUpperCase();
 
     await StoreMethods().submitWord(
@@ -95,15 +97,6 @@ class _GameScreenState extends State<GameScreen> {
 
   dontKnowWord() async {
     print("didnt know word");
-    /*var alive = users.where((element) => element.alive == true).toList();
-    var myIndex = alive.lastIndexWhere(
-      (element) => element.uid == currentUser.uid,
-    );
-    int nextIndex = myIndex + 1;
-    if (myIndex == alive.length - 1) {
-      nextIndex = 0;
-    }
-    var nextUser = alive[nextIndex]; */
     var alive = users.where((element) => element.alive == true).toList();
     var nextUser = getNewPlayer();
 
@@ -136,10 +129,15 @@ class _GameScreenState extends State<GameScreen> {
   UserModel getNewPlayer() {
     var dead = users.where((e) => e.alive == false).toList();
     List<String> deadUids = [];
+    List<String> allUids = [];
     for (var user in dead) {
       deadUids.add(user.uid);
     }
-    order.removeWhere((e) => deadUids.contains(e) && e != currentUser.uid);
+    for (var user in users) {
+      allUids.add(user.uid);
+    }
+    order.removeWhere((e) =>
+        (deadUids.contains(e) && e != currentUser.uid) || !allUids.contains(e));
 
     int myIndex = order.indexOf(currentUser.uid);
     int newIndex = myIndex + 1;
@@ -152,40 +150,6 @@ class _GameScreenState extends State<GameScreen> {
       order.remove(currentUser.uid);
     }
     return newUser;
-
-    /* print(users.length);
-    if (users.length == 2) {
-      print("length == 2");
-      var valid = users.firstWhere((element) => element.uid != currentUser.uid);
-      return valid;
-    }
-    var alive = users.where((element) => element.alive == true).toList();
-
-    var maxScore = 0;
-    for (var user in alive) {
-      if (user.score > maxScore) {
-        maxScore = user.score;
-      }
-    }
-    Random random = new Random();
-    var nextUser = UserModel();
-
-    var valid = alive
-        .where((element) =>
-            element.score < maxScore && element.uid != currentUser.uid)
-        .toList();
-    if (valid.length == 0) {
-      print("valid = 0");
-      var toChooseFrom =
-          alive.where((element) => element.uid != currentUser.uid).toList();
-
-      int ranIndex = random.nextInt(toChooseFrom.length);
-      nextUser = toChooseFrom[ranIndex];
-    } else {
-      int ranIndex = random.nextInt(valid.length);
-      nextUser = valid[ranIndex];
-    }
-    return nextUser; */
   }
 
   Widget members() {
@@ -225,6 +189,7 @@ class _GameScreenState extends State<GameScreen> {
                 .compareTo(b.data()['userName'].toString().toLowerCase());
           }); */
           var newDocs = alive + dead;
+          bool delete = false;
           List<UserModel> oldUsers = users;
           List<UserModel> toAdd = [];
           List<String> toRemove = [];
@@ -248,7 +213,33 @@ class _GameScreenState extends State<GameScreen> {
               toAdd.add(user);
             }
           }
-          if (toAdd.length > 0) {
+
+          List<String> allNewUids = [];
+          for (var doc in newDocs) {
+            var newUser = UserModel.fromMap(doc.data());
+            allNewUids.add(newUser.uid);
+          }
+
+          if (!allNewUids.contains(currentUser.uid)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {
+                  _kicked = true;
+                }));
+            return Text(
+              "KICKED",
+              style: TextStyle(
+                fontSize: 40,
+              ),
+            );
+          }
+
+          for (var oldUser in oldUsers) {
+            if (!allNewUids.contains(oldUser.uid)) {
+              toRemove.add(oldUser.uid);
+              delete = true;
+            }
+          }
+
+          if (toAdd.length > 0 || delete) {
             print("setting users");
             WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {
                   users.removeWhere((e) => toRemove.contains(e.uid));
@@ -258,7 +249,14 @@ class _GameScreenState extends State<GameScreen> {
           return ListView.builder(
             itemCount: users.length,
             itemBuilder: (context, index) {
-              return Member(user: users[index]);
+              return Member(
+                user: users[index],
+                currentUser: currentUser,
+                kick: (UserModel toKick) {
+                  kick(toKick);
+                },
+                isHost: isHost,
+              );
             },
           );
         });
@@ -266,7 +264,6 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget game(Size size) {
     return Container(
-      color: Colors.pink,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -286,6 +283,11 @@ class _GameScreenState extends State<GameScreen> {
               String winnerId = snapshot.data['winner'].toString();
               String currentPlayerId =
                   snapshot.data['currentPlayer'].toString();
+              if (currentPlayerId == "NONE") {
+                return CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(backgroundColor),
+                );
+              }
 
               if (winnerId != "NONE") {
                 var winner = users.firstWhere(
@@ -337,26 +339,46 @@ class _GameScreenState extends State<GameScreen> {
                 );
               }
 
-              var currentPlayer = users.firstWhere(
-                  (element) => element.uid == currentPlayerId,
+              var newCurrentPlayer = users.firstWhere(
+                  (e) => e.uid == currentPlayerId,
                   orElse: () => new UserModel(userName: "error"));
-              if (currentPlayer.userName == "error") {
-                currentPlayer = currentUser;
-                setCurrentPlayer(currentPlayer);
+
+              if (newCurrentPlayer.userName == "error") {
+                print("error");
+                return CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(backgroundColor),
+                );
+              } else if (newCurrentPlayer.uid == currentUser.uid && !_playing) {
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => setState(() {
+                    _playing = true;
+                    _enabled = true;
+                  }),
+                );
+                return CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(backgroundColor),
+                );
+              } else if (newCurrentPlayer.uid != currentUser.uid && _playing) {
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => setState(() {
+                    _playing = false;
+                    _enabled = false;
+                  }),
+                );
+                return CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(backgroundColor),
+                );
               }
-              if (currentPlayer.uid == currentUser.uid && !_playing) {
-                WidgetsBinding.instance
-                    .addPostFrameCallback((_) => setState(() {
-                          _playing = true;
-                          _enabled = true;
-                        }));
-              }
-              if (currentPlayer.uid != currentUser.uid && _playing) {
-                WidgetsBinding.instance
-                    .addPostFrameCallback((_) => setState(() {
-                          _playing = false;
-                          _enabled = false;
-                        }));
+              if (currentPlayer == null ||
+                  newCurrentPlayer.uid != currentPlayer.uid) {
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => setState(() {
+                    currentPlayer = newCurrentPlayer;
+                  }),
+                );
+                return CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(backgroundColor),
+                );
               }
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -381,7 +403,7 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                   SizedBox(height: size.height * 0.01),
                   Text(
-                    currentPlayer.userName,
+                    newCurrentPlayer.userName,
                     textAlign: TextAlign.center,
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 28),
                   ),
@@ -455,19 +477,13 @@ class _GameScreenState extends State<GameScreen> {
                           ],
                         )
                       : Center(
-                          child: Text("Wachten op ${currentPlayer.userName}"),
+                          child:
+                              Text("Wachten op ${newCurrentPlayer.userName}"),
                         ),
                   SizedBox(height: size.height * 0.03),
                   Clock(
                     key: UniqueKey(),
                     timeUp: () {
-                      var alive = users
-                          .where((element) => element.alive == true)
-                          .toList();
-                      if (alive.length <= 1) {
-                        var winner = alive[0];
-                        print("fuuuuck");
-                      }
                       if (_enabled && _playing) {
                         dontKnowWord();
                         setState(() {
@@ -572,117 +588,160 @@ class _GameScreenState extends State<GameScreen> {
         height: size.height,
         width: double.infinity,
         alignment: Alignment.center,
-        child: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 15),
-              width: size.width * 0.2,
-              height: size.height,
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(
-                    color: Colors.black,
-                    width: 2,
+        child: _kicked
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 40,
                   ),
-                ),
-              ),
-              child: members(),
-            ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 15),
-              width: size.width * 0.2,
-              height: size.height,
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(
-                    color: Colors.black,
-                    width: 2,
+                  SizedBox(height: 10),
+                  Text(
+                    "Kicked by host",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ),
-              child: words(),
-            ),
-            Container(
-                width: size.width * 0.6,
-                height: size.height,
-                alignment: Alignment.center,
-                child: SingleChildScrollView(
-                  child: _started
-                      ? game(size)
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              "Code:",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 34),
-                            ),
-                            Text(
-                              pin,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 65),
-                            ),
-                            SizedBox(height: 80),
-                            SizedBox(
-                              height: 90,
-                              width: 90,
-                              child: CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    backgroundColor),
-                              ),
-                            ),
-                            SizedBox(height: 60),
-                            Text(
-                              "Waiting for other players...",
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 90),
-                            isHost
-                                ? FlatButton(
-                                    color: Colors.amber,
-                                    height: 70,
-                                    minWidth: 250,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(30),
-                                    ),
-                                    child: Text(
-                                      "Start Game",
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 24,
-                                      ),
-                                    ),
-                                    onPressed: () {
-                                      if (users.length > 1) {
-                                        startGame();
-                                      } else {
-                                        showToast(
-                                          'You need to be with at least 2 players, current: ${users.length}',
-                                          duration: Duration(seconds: 3),
-                                          position: ToastPosition.center,
-                                          backgroundColor: Colors.grey,
-                                          radius: 7,
-                                          textStyle: TextStyle(
-                                            fontSize: 24,
-                                            color: Colors.white,
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  )
-                                : Container(),
-                          ],
+                  SizedBox(height: 40),
+                  FlatButton(
+                    color: Colors.amber,
+                    height: 70,
+                    minWidth: 250,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Text(
+                      "Quit",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24,
+                      ),
+                    ),
+                    onPressed: () {
+                      navigatorKey.currentState.pushReplacementNamed("/signUp");
+                    },
+                  ),
+                ],
+              )
+            : Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 15),
+                    width: size.width * 0.2,
+                    height: size.height,
+                    decoration: BoxDecoration(
+                      border: Border(
+                        right: BorderSide(
+                          color: Colors.black,
+                          width: 2,
                         ),
-                )),
-          ],
-        ),
+                      ),
+                    ),
+                    child: members(),
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 15),
+                    width: size.width * 0.2,
+                    height: size.height,
+                    decoration: BoxDecoration(
+                      border: Border(
+                        right: BorderSide(
+                          color: Colors.black,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    child: words(),
+                  ),
+                  Container(
+                      width: size.width * 0.6,
+                      height: size.height,
+                      alignment: Alignment.center,
+                      child: SingleChildScrollView(
+                        child: _started
+                            ? game(size)
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    "Code:",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 34),
+                                  ),
+                                  Text(
+                                    pin,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 65),
+                                  ),
+                                  SizedBox(height: 80),
+                                  SizedBox(
+                                    height: 90,
+                                    width: 90,
+                                    child: CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          backgroundColor),
+                                    ),
+                                  ),
+                                  SizedBox(height: 60),
+                                  Text(
+                                    "Waiting for other players...",
+                                    style: TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(height: 90),
+                                  isHost
+                                      ? FlatButton(
+                                          color: Colors.amber,
+                                          height: 70,
+                                          minWidth: 250,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(30),
+                                          ),
+                                          child: Text(
+                                            "Start Game",
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 24,
+                                            ),
+                                          ),
+                                          onPressed: () {
+                                            if (users.length > 1) {
+                                              startGame();
+                                            } else {
+                                              showToast(
+                                                'You need to be with at least 2 players, current: ${users.length}',
+                                                duration: Duration(seconds: 3),
+                                                position: ToastPosition.center,
+                                                backgroundColor: Colors.grey,
+                                                radius: 7,
+                                                textStyle: TextStyle(
+                                                  fontSize: 24,
+                                                  color: Colors.white,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                        )
+                                      : Container(),
+                                ],
+                              ),
+                      )),
+                ],
+              ),
       ),
     );
   }
