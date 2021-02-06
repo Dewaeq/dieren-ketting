@@ -1,10 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 import 'package:dieren_ketting/main.dart';
 import 'package:dieren_ketting/model/constants.dart';
 import 'package:dieren_ketting/services/firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:oktoast/oktoast.dart';
 
 class SignUpScreen extends StatefulWidget {
   SignUpScreen({Key key}) : super(key: key);
@@ -38,6 +37,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
       "/joinRoom",
       arguments: fuck,
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
   }
 
   @override

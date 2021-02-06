@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:http/http.dart' as http;
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dieren_ketting/main.dart';
@@ -48,6 +49,18 @@ class _GameScreenState extends State<GameScreen> {
   int score = 0;
   List<String> allWords = [];
   List<String> order = [];
+  List<String> animals = [];
+
+  getAnimals() async {
+    var file = (await http.get("assets/data/data.txt")).body;
+    var lines = file.split("\n");
+    for (var line in lines) {
+      if (line.trim() != "") {
+        animals.add(line.trim());
+      }
+    }
+    print("gotAnimals");
+  }
 
   kick(UserModel toKick) async {
     if (currentPlayer != null && currentPlayer.uid == toKick.uid) {
@@ -427,6 +440,12 @@ class _GameScreenState extends State<GameScreen> {
                                       return null;
                                     if (value.length == 0)
                                       return "Voer een dier in";
+                                    if (!animals
+                                        .contains(value.toUpperCase())) {
+                                      print(value.toUpperCase());
+                                      print(animals);
+                                      return "Dit dier bestaat niet";
+                                    }
                                     if (value[0].toUpperCase() != lastLetter)
                                       return "Voer een geldig dier in";
                                     if (allWords.contains(value.toUpperCase()))
@@ -548,6 +567,7 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void initState() {
+    getAnimals();
     super.initState();
     stream =
         FirebaseFirestore.instance.collection("rooms").doc(pin).snapshots();
