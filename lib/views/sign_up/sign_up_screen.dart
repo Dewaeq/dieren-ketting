@@ -49,165 +49,187 @@ class _SignUpScreenState extends State<SignUpScreen> {
         width: double.infinity,
         height: size.height,
         alignment: Alignment.center,
-        child: SingleChildScrollView(
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+        child: size.width < 650
+            ? Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 40,
+                  ),
+                  SizedBox(height: 10),
                   Text(
-                    "Dierenketting",
+                    "Sorry, this screen size is currently not supported. Try to rotate your device or use a tablet/pc.",
+                    textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 54,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(height: size.height * 0.08),
-                  Text(
-                    "Game Pin:",
-                    style: TextStyle(fontSize: 24),
-                  ),
-                  SizedBox(height: 40),
-                  Container(
-                    height: 100,
-                    width: size.width * 0.3,
-                    child: Form(
-                      key: formKey,
-                      child: TextFormField(
-                        controller: pinController,
-                        validator: (value) {
-                          return value.replaceAll(' ', '').length == 6
-                              ? null
-                              : "Enter a valid code";
-                        },
-                        inputFormatters: <TextInputFormatter>[
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
-                        ],
-                        maxLength: 6,
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 24,
+                ],
+              )
+            : SingleChildScrollView(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Dierenketting",
+                          style: TextStyle(
+                            fontSize: 54,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        decoration: InputDecoration(
-                          errorText: _validate ? "Enter a valid code" : null,
-                          contentPadding: EdgeInsets.zero,
-                          hintText: "165689",
-                          counterText: "",
+                        SizedBox(height: size.height * 0.08),
+                        Text(
+                          "Game Pin:",
+                          style: TextStyle(fontSize: 24),
                         ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  FlatButton(
-                    color: backgroundColor,
-                    height: 70,
-                    minWidth: 250,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: _loading
-                        ? CircularProgressIndicator(
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          )
-                        : Text(
-                            "Join Game",
+                        SizedBox(height: 40),
+                        Container(
+                          height: 100,
+                          width: size.width * 0.3,
+                          child: Form(
+                            key: formKey,
+                            child: TextFormField(
+                              controller: pinController,
+                              validator: (value) {
+                                return value.replaceAll(' ', '').length == 6
+                                    ? null
+                                    : "Enter a valid code";
+                              },
+                              inputFormatters: <TextInputFormatter>[
+                                FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9]')),
+                              ],
+                              maxLength: 6,
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 24,
+                              ),
+                              decoration: InputDecoration(
+                                errorText:
+                                    _validate ? "Enter a valid code" : null,
+                                contentPadding: EdgeInsets.zero,
+                                hintText: "165689",
+                                counterText: "",
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 20),
+                        FlatButton(
+                          color: backgroundColor,
+                          height: 70,
+                          minWidth: 250,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: _loading
+                              ? CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                )
+                              : Text(
+                                  "Join Game",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 24,
+                                  ),
+                                ),
+                          onPressed: _loading
+                              ? () {}
+                              : () async {
+                                  if (formKey.currentState.validate()) {
+                                    setState(() {
+                                      _loading = true;
+                                    });
+                                    print("joining");
+                                    String pin = pinController.text;
+                                    bool exists = await StoreMethods()
+                                        .checkForDocument("rooms", pin);
+                                    print(exists);
+                                    if (exists) {
+                                      print("it exists");
+                                      Map<String, dynamic> args = {
+                                        "pin": pin,
+                                        "isHost": false,
+                                      };
+                                      navigatorKey.currentState.pushNamed(
+                                        "/joinRoom",
+                                        arguments: args,
+                                      );
+                                    } else {
+                                      setState(() {
+                                        _loading = false;
+                                        _validate = true;
+                                      });
+                                    }
+                                  }
+                                },
+                        ),
+                        SizedBox(height: 20),
+                        FlatButton(
+                          color: Colors.amber,
+                          height: 70,
+                          minWidth: 250,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: Text(
+                            "Create Game",
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 24,
                             ),
                           ),
-                    onPressed: _loading
-                        ? () {}
-                        : () async {
-                            if (formKey.currentState.validate()) {
-                              setState(() {
-                                _loading = true;
-                              });
-                              print("joining");
-                              String pin = pinController.text;
-                              bool exists = await StoreMethods()
-                                  .checkForDocument("rooms", pin);
-                              print(exists);
-                              if (exists) {
-                                print("it exists");
-                                Map<String, dynamic> args = {
-                                  "pin": pin,
-                                  "isHost": false,
-                                };
-                                navigatorKey.currentState.pushNamed(
-                                  "/joinRoom",
-                                  arguments: args,
-                                );
-                              } else {
-                                setState(() {
-                                  _loading = false;
-                                  _validate = true;
-                                });
-                              }
-                            }
+                          onPressed: () {
+                            createGame();
                           },
-                  ),
-                  SizedBox(height: 20),
-                  FlatButton(
-                    color: Colors.amber,
-                    height: 70,
-                    minWidth: 250,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      "Create Game",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 24,
-                      ),
-                    ),
-                    onPressed: () {
-                      createGame();
-                    },
-                  ),
-                ],
+                    _creatingGame
+                        ? Container(
+                            height: size.height,
+                            color: Colors.grey.withOpacity(.7),
+                            alignment: Alignment.center,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.max,
+                              children: [
+                                SizedBox(
+                                  height: 120,
+                                  width: 120,
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        backgroundColor),
+                                  ),
+                                ),
+                                SizedBox(height: 50),
+                                Text(
+                                  "Creating Game",
+                                  style: TextStyle(
+                                    fontSize: 38,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                              // ),
+                            ),
+                          )
+                        : Container(),
+                  ],
+                ),
               ),
-              _creatingGame
-                  ? Container(
-                      height: size.height,
-                      color: Colors.grey.withOpacity(.7),
-                      alignment: Alignment.center,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.max,
-                        children: [
-                          SizedBox(
-                            height: 120,
-                            width: 120,
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                  backgroundColor),
-                            ),
-                          ),
-                          SizedBox(height: 50),
-                          Text(
-                            "Creating Game",
-                            style: TextStyle(
-                              fontSize: 38,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                        // ),
-                      ),
-                    )
-                  : Container(),
-            ],
-          ),
-        ),
       ),
     );
   }
