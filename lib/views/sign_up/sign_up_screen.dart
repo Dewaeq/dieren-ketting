@@ -1,4 +1,3 @@
-import 'package:http/http.dart' as http;
 import 'package:dieren_ketting/main.dart';
 import 'package:dieren_ketting/model/constants.dart';
 import 'package:dieren_ketting/services/firestore.dart';
@@ -110,6 +109,34 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 FilteringTextInputFormatter.allow(
                                     RegExp(r'[0-9]')),
                               ],
+                              onFieldSubmitted: (value) async {
+                                if (formKey.currentState.validate()) {
+                                  setState(() {
+                                    _loading = true;
+                                  });
+                                  print("joining");
+                                  String pin = pinController.text;
+                                  bool exists = await StoreMethods()
+                                      .checkForDocument("rooms", pin);
+                                  print(exists);
+                                  if (exists) {
+                                    print("it exists");
+                                    Map<String, dynamic> args = {
+                                      "pin": pin,
+                                      "isHost": false,
+                                    };
+                                    navigatorKey.currentState.pushNamed(
+                                      "/joinRoom",
+                                      arguments: args,
+                                    );
+                                  } else {
+                                    setState(() {
+                                      _loading = false;
+                                      _validate = true;
+                                    });
+                                  }
+                                }
+                              },
                               maxLength: 6,
                               keyboardType: TextInputType.number,
                               textAlign: TextAlign.center,

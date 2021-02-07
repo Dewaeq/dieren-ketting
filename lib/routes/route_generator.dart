@@ -1,4 +1,3 @@
-import 'package:dieren_ketting/model/user_model.dart';
 import 'package:dieren_ketting/views/game/game_screen.dart';
 import 'package:dieren_ketting/views/join_game/join_game_screen.dart';
 import 'package:dieren_ketting/views/sign_up/sign_up_screen.dart';
@@ -17,7 +16,7 @@ class RouteGenerator {
 
       case "/joinRoom":
         if (args is Map<String, dynamic>) {
-          print(args['isHost']);
+          print("fking host?: " + args['isHost'].toString());
           return MaterialPageRoute(
             builder: (_) => JoinGameScreen(
               pin: args['pin'],

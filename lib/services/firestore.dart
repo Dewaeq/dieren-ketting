@@ -25,15 +25,12 @@ class StoreMethods {
       "userName": userName,
       "uid": uid,
       "alive": "TRUE",
-      "lastAnswer": "",
-      "score": 0,
     });
     return true;
   }
 
   Future<bool> submitWord({
     @required String word,
-    @required int score,
     @required String pin,
     @required UserModel currentUser,
     @required UserModel nextUser,
@@ -46,15 +43,6 @@ class StoreMethods {
       "word": word,
       "time": DateTime.now().millisecondsSinceEpoch.toString(),
       "answerer": currentUser.uid,
-    });
-    await FirebaseFirestore.instance
-        .collection("rooms")
-        .doc(pin)
-        .collection("members")
-        .doc(currentUser.uid)
-        .update({
-      "score": score,
-      "lastAnswer": word,
     });
     await FirebaseFirestore.instance.collection("rooms").doc(pin).update({
       "currentWord": word,
@@ -131,7 +119,7 @@ class StoreMethods {
     });
 
     for (var user in users) {
-      if (!user.alive || user.score != 0) {
+      if (!user.alive) {
         await FirebaseFirestore.instance
             .collection("rooms")
             .doc(pin)
@@ -139,8 +127,6 @@ class StoreMethods {
             .doc(user.uid)
             .update({
           "alive": "TRUE",
-          "lastAnswer": "NONE",
-          "score": 0,
         });
       }
     }
@@ -164,6 +150,13 @@ class StoreMethods {
         .collection("members")
         .doc(toKick.uid)
         .delete();
+    return true;
+  }
+
+  Future<bool> setWinner(String pin, UserModel winner) async {
+    await FirebaseFirestore.instance.collection("rooms").doc(pin).update({
+      "winner": winner.uid,
+    });
     return true;
   }
 }
