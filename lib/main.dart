@@ -34,7 +34,7 @@ class MyApp extends StatelessWidget {
     return OKToast(
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'Flutter Demo',
+        title: 'Dieren Ketting',
         navigatorKey: navigatorKey,
         theme: ThemeData(
           fontFamily: "ProductSans",

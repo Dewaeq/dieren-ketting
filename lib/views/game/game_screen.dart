@@ -48,7 +48,9 @@ class _GameScreenState extends State<GameScreen> {
       _started = false,
       _kicked = false,
       _starting = false,
-      _restarting = false;
+      _restarting = false,
+      _checkWords = false,
+      _loading = false;
   Stream<DocumentSnapshot> roomStream;
   Stream<QuerySnapshot> membersStream;
   Stream<QuerySnapshot> wordsStream;
@@ -313,12 +315,13 @@ class _GameScreenState extends State<GameScreen> {
                         enabled: _enabled,
                         validator: (value) {
                           var lastLetter = word[word.length - 1].toUpperCase();
-                          if (word == "NONE" && value.length > 0) return null;
-                          if (value.length == 0) return "Voer een dier in";
-                          if (!animals.contains(value.toUpperCase())) {
+                          if (_checkWords &&
+                              !animals.contains(value.toUpperCase())) {
                             print(value.toUpperCase());
                             return "Dit dier bestaat niet";
                           }
+                          if (word == "NONE" && value.length > 0) return null;
+                          if (value.length == 0) return "Voer een dier in";
                           if (value[0].toUpperCase() != lastLetter)
                             return "Voer een geldig dier in";
                           if (allWords.contains(value.toUpperCase()))
@@ -395,11 +398,8 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget words() {
-    if (allWords.length == 0) {
-      return Center(
-        child: CircularProgressIndicator(),
-      );
-    }
+    if (allWords.length == 0) return Container();
+
     return ListView.builder(
       itemCount: allWords.length,
       itemBuilder: (context, index) {
@@ -420,6 +420,7 @@ class _GameScreenState extends State<GameScreen> {
       String newWinnerId = event.data()['winner'].toString();
       String newCurrentPlayerId = event.data()['currentPlayer'].toString();
       bool started = event.data()['started'] == "TRUE";
+      bool checkWords = event.data()['checkWords'] == "TRUE";
 
       if (started != _started) {
         setState(() {
@@ -432,7 +433,15 @@ class _GameScreenState extends State<GameScreen> {
             allWords.clear();
             _playing = false;
             _enabled = false;
+            _restarting = false;
+            _starting = false;
           }
+        });
+      }
+      if (newWord == "NONE" && _checkWords != checkWords) {
+        print("changing _checkWords");
+        setState(() {
+          _checkWords = checkWords;
         });
       }
 
@@ -523,6 +532,7 @@ class _GameScreenState extends State<GameScreen> {
         .snapshots();
     wordsStream.listen((event) {
       var docs = event.docChanges;
+      if (docs.length == 0) return;
 
       if (docs[0].type == DocumentChangeType.removed) {
         setState(() => allWords.clear());
@@ -620,175 +630,265 @@ class _GameScreenState extends State<GameScreen> {
     Size size = MediaQuery.of(context).size;
 
     return Scaffold(
-      body: Container(
-        height: size.height,
-        width: double.infinity,
+      body: Stack(
         alignment: Alignment.center,
-        child: _kicked
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.warning_amber_rounded,
-                    size: 40,
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    "Kicked by host",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 40),
-                  FlatButton(
-                    color: Colors.amber,
-                    height: 70,
-                    minWidth: 250,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Text(
-                      "Quit",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 24,
+        children: [
+          Container(
+            height: size.height,
+            width: double.infinity,
+            alignment: Alignment.center,
+            child: _kicked
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        size: 40,
                       ),
-                    ),
-                    onPressed: () {
-                      navigatorKey.currentState.pushReplacementNamed("/signUp");
-                    },
-                  ),
-                ],
-              )
-            : Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 15),
-                    width: size.width * 0.2,
-                    height: size.height,
-                    decoration: BoxDecoration(
-                      border: Border(
-                        right: BorderSide(
-                          color: Colors.black,
-                          width: 2,
+                      SizedBox(height: 10),
+                      Text(
+                        "Kicked by host",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                    child: members(),
-                  ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 15),
-                    width: size.width * 0.2,
-                    height: size.height,
-                    decoration: BoxDecoration(
-                      border: Border(
-                        right: BorderSide(
-                          color: Colors.black,
-                          width: 2,
+                      SizedBox(height: 40),
+                      FlatButton(
+                        color: Colors.amber,
+                        height: 70,
+                        minWidth: 250,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
                         ),
+                        child: Text(
+                          "Quit",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                          ),
+                        ),
+                        onPressed: () {
+                          navigatorKey.currentState
+                              .pushReplacementNamed("/signUp");
+                        },
                       ),
-                    ),
-                    child: words(),
-                  ),
-                  Container(
-                      width: size.width * 0.6,
-                      height: size.height,
-                      alignment: Alignment.center,
-                      child: SingleChildScrollView(
-                        child: _started
-                            ? game(size)
-                            : Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    "Code:",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 34),
-                                  ),
-                                  Text(
-                                    pin,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 65),
-                                  ),
-                                  SizedBox(height: 80),
-                                  SizedBox(
-                                    height: 90,
-                                    width: 90,
-                                    child: CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          backgroundColor),
-                                    ),
-                                  ),
-                                  SizedBox(height: 60),
-                                  Text(
-                                    "Waiting for other players...",
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  SizedBox(height: 90),
-                                  isHost
-                                      ? FlatButton(
-                                          color: Colors.amber,
-                                          height: 70,
-                                          minWidth: 250,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(30),
-                                          ),
-                                          child: _starting
-                                              ? CircularProgressIndicator(
-                                                  valueColor:
-                                                      AlwaysStoppedAnimation<
-                                                          Color>(Colors.white),
-                                                )
-                                              : Text(
-                                                  "Start Game",
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 24,
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 15),
+                        width: size.width * 0.2,
+                        height: size.height,
+                        decoration: BoxDecoration(
+                          border: Border(
+                            right: BorderSide(
+                              color: Colors.black,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                        child: members(),
+                      ),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 15),
+                        width: size.width * 0.2,
+                        height: size.height,
+                        decoration: BoxDecoration(
+                          border: Border(
+                            right: BorderSide(
+                              color: Colors.black,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                        child: words(),
+                      ),
+                      Container(
+                          width: size.width * 0.6,
+                          height: size.height,
+                          alignment: Alignment.center,
+                          child: SingleChildScrollView(
+                            child: _started
+                                ? game(size)
+                                : Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        "Code:",
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 34),
+                                      ),
+                                      Text(
+                                        pin,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 65),
+                                      ),
+                                      SizedBox(height: 80),
+                                      SizedBox(
+                                        height: 90,
+                                        width: 90,
+                                        child: CircularProgressIndicator(
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                  backgroundColor),
+                                        ),
+                                      ),
+                                      SizedBox(height: 60),
+                                      Text(
+                                        "Waiting for other players...",
+                                        style: TextStyle(
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      SizedBox(height: 90),
+                                      isHost
+                                          ? Column(
+                                              children: [
+                                                FlatButton(
+                                                  color: Colors.amber,
+                                                  height: 70,
+                                                  minWidth: 250,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            30),
                                                   ),
+                                                  child: _starting
+                                                      ? CircularProgressIndicator(
+                                                          valueColor:
+                                                              AlwaysStoppedAnimation<
+                                                                      Color>(
+                                                                  Colors.white),
+                                                        )
+                                                      : Text(
+                                                          "Start Game",
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 24,
+                                                          ),
+                                                        ),
+                                                  onPressed: _starting
+                                                      ? () {}
+                                                      : () {
+                                                          if (users.length >
+                                                              1) {
+                                                            startGame();
+                                                          } else {
+                                                            showToast(
+                                                              'You need to be with at least 2 players, current: ${users.length}',
+                                                              duration:
+                                                                  Duration(
+                                                                      seconds:
+                                                                          3),
+                                                              position:
+                                                                  ToastPosition
+                                                                      .center,
+                                                              backgroundColor:
+                                                                  Colors.grey,
+                                                              radius: 7,
+                                                              textStyle:
+                                                                  TextStyle(
+                                                                fontSize: 24,
+                                                                color: Colors
+                                                                    .white,
+                                                              ),
+                                                            );
+                                                          }
+                                                        },
                                                 ),
-                                          onPressed: _starting
-                                              ? () {}
-                                              : () {
-                                                  if (users.length > 1) {
-                                                    startGame();
-                                                  } else {
-                                                    showToast(
-                                                      'You need to be with at least 2 players, current: ${users.length}',
-                                                      duration:
-                                                          Duration(seconds: 3),
-                                                      position:
-                                                          ToastPosition.center,
-                                                      backgroundColor:
-                                                          Colors.grey,
-                                                      radius: 7,
-                                                      textStyle: TextStyle(
-                                                        fontSize: 24,
-                                                        color: Colors.white,
+                                                SizedBox(height: 50),
+                                                Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Text(
+                                                      "Check if animal exists: ",
+                                                      style: TextStyle(
+                                                        fontSize: 22,
+                                                        fontWeight:
+                                                            FontWeight.bold,
                                                       ),
-                                                    );
-                                                  }
-                                                },
-                                        )
-                                      : Container(),
-                                ],
-                              ),
-                      )),
-                ],
-              ),
+                                                    ),
+                                                    SizedBox(width: 10),
+                                                    Switch(
+                                                      value: _checkWords,
+                                                      activeColor:
+                                                          backgroundColor,
+                                                      onChanged: (value) async {
+                                                        setState(() {
+                                                          _loading = true;
+                                                        });
+                                                        await StoreMethods()
+                                                            .setCheckWords(
+                                                                pin, value);
+                                                        await Future.delayed(
+                                                            Duration(
+                                                          seconds: 1,
+                                                          milliseconds: 300,
+                                                        ));
+                                                        setState(() {
+                                                          _checkWords = value;
+                                                          _loading = false;
+                                                        });
+                                                      },
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            )
+                                          : Container(),
+                                    ],
+                                  ),
+                          )),
+                    ],
+                  ),
+          ),
+          _loading
+              ? Container(
+                  height: size.height,
+                  color: Colors.grey.withOpacity(.7),
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.max,
+                    children: [
+                      SizedBox(
+                        height: 120,
+                        width: 120,
+                        child: CircularProgressIndicator(
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(backgroundColor),
+                        ),
+                      ),
+                      SizedBox(height: 50),
+                      Text(
+                        "Loading",
+                        style: TextStyle(
+                          fontSize: 38,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    // ),
+                  ),
+                )
+              : Container()
+        ],
       ),
     );
   }

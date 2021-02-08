@@ -97,6 +97,7 @@ class StoreMethods {
       "started": "FALSE",
       "winner": "NONE",
       "order": "NONE",
+      "checkWords": "FALSE",
     });
     return pin.toString();
   }
@@ -156,6 +157,13 @@ class StoreMethods {
   Future<bool> setWinner(String pin, UserModel winner) async {
     await FirebaseFirestore.instance.collection("rooms").doc(pin).update({
       "winner": winner.uid,
+    });
+    return true;
+  }
+
+  Future<bool> setCheckWords(String pin, bool checkWords) async {
+    await FirebaseFirestore.instance.collection("rooms").doc(pin).update({
+      "checkWords": checkWords ? "TRUE" : "FALSE",
     });
     return true;
   }
