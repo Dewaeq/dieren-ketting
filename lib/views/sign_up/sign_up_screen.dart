@@ -3,6 +3,7 @@ import 'package:dieren_ketting/model/constants.dart';
 import 'package:dieren_ketting/services/firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:js' as js;
 
 class SignUpScreen extends StatefulWidget {
   SignUpScreen({Key key}) : super(key: key);
@@ -76,6 +77,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
+                    Container(
+                      height: size.height,
+                    ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -225,6 +229,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             createGame();
                           },
                         ),
+                        SizedBox(height: 70),
                       ],
                     ),
                     _creatingGame
@@ -258,6 +263,34 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                           )
                         : Container(),
+                    Positioned(
+                      bottom: 20,
+                      child: FlatButton(
+                        onPressed: () {
+                          js.context.callMethod('open',
+                              ['https://www.github.com/dewaeq/dieren-ketting']);
+                          /* html.window.open(
+                              "https://www.github.com/dewaeq/dieren-ketting",
+                              "GitHub"); */
+                        },
+                        child: Row(
+                          children: [
+                            Image.asset(
+                              "assets/img/github.png",
+                              height: 40,
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              "Source",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 22,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

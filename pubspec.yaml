@@ -49,6 +49,7 @@ flutter:
 
   assets:
     - assets/data/
+    - assets/img/
 
   fonts:
     - family: ProductSans
