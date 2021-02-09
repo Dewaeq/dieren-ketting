@@ -39,6 +39,34 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
+  signUpForGame(String value) async {
+    if (formKey.currentState.validate()) {
+      setState(() {
+        _loading = true;
+      });
+      print("joining");
+      String pin = pinController.text;
+      bool exists = await StoreMethods().checkForDocument("rooms", pin);
+      print(exists);
+      if (exists) {
+        print("it exists");
+        Map<String, dynamic> args = {
+          "pin": pin,
+          "isHost": false,
+        };
+        navigatorKey.currentState.pushNamed(
+          "/joinRoom",
+          arguments: args,
+        );
+      } else {
+        setState(() {
+          _loading = false;
+          _validate = true;
+        });
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -113,34 +141,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 FilteringTextInputFormatter.allow(
                                     RegExp(r'[0-9]')),
                               ],
-                              onFieldSubmitted: (value) async {
-                                if (formKey.currentState.validate()) {
-                                  setState(() {
-                                    _loading = true;
-                                  });
-                                  print("joining");
-                                  String pin = pinController.text;
-                                  bool exists = await StoreMethods()
-                                      .checkForDocument("rooms", pin);
-                                  print(exists);
-                                  if (exists) {
-                                    print("it exists");
-                                    Map<String, dynamic> args = {
-                                      "pin": pin,
-                                      "isHost": false,
-                                    };
-                                    navigatorKey.currentState.pushNamed(
-                                      "/joinRoom",
-                                      arguments: args,
-                                    );
-                                  } else {
-                                    setState(() {
-                                      _loading = false;
-                                      _validate = true;
-                                    });
-                                  }
-                                }
-                              },
+                              onFieldSubmitted: (value) => signUpForGame(value),
                               maxLength: 6,
                               keyboardType: TextInputType.number,
                               textAlign: TextAlign.center,
@@ -180,34 +181,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 ),
                           onPressed: _loading
                               ? () {}
-                              : () async {
-                                  if (formKey.currentState.validate()) {
-                                    setState(() {
-                                      _loading = true;
-                                    });
-                                    print("joining");
-                                    String pin = pinController.text;
-                                    bool exists = await StoreMethods()
-                                        .checkForDocument("rooms", pin);
-                                    print(exists);
-                                    if (exists) {
-                                      print("it exists");
-                                      Map<String, dynamic> args = {
-                                        "pin": pin,
-                                        "isHost": false,
-                                      };
-                                      navigatorKey.currentState.pushNamed(
-                                        "/joinRoom",
-                                        arguments: args,
-                                      );
-                                    } else {
-                                      setState(() {
-                                        _loading = false;
-                                        _validate = true;
-                                      });
-                                    }
-                                  }
-                                },
+                              : () => signUpForGame(pinController.text),
                         ),
                         SizedBox(height: 20),
                         FlatButton(
@@ -269,9 +243,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         onPressed: () {
                           js.context.callMethod('open',
                               ['https://www.github.com/dewaeq/dieren-ketting']);
-                          /* html.window.open(
-                              "https://www.github.com/dewaeq/dieren-ketting",
-                              "GitHub"); */
                         },
                         child: Row(
                           children: [

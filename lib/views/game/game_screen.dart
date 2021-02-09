@@ -109,12 +109,15 @@ class _GameScreenState extends State<GameScreen> {
     await StoreMethods().setCurrentPlayer(newCurrentPlayer, pin);
   }
 
-  submitWord() async {
+  submitWord(String value) async {
+    if (!formKey.currentState.validate()) return;
+    setState(() {
+      _enabled = false;
+    });
     var nextUser = getNewPlayer();
-    var word = wordController.text.toUpperCase();
 
     await StoreMethods().submitWord(
-      word: word,
+      word: value,
       pin: pin,
       currentUser: currentUser,
       nextUser: nextUser,
@@ -273,6 +276,8 @@ class _GameScreenState extends State<GameScreen> {
       );
     }
 
+    print("returning game");
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -316,24 +321,22 @@ class _GameScreenState extends State<GameScreen> {
                         validator: (value) {
                           var lastLetter = word[word.length - 1].toUpperCase();
                           if (_checkWords &&
-                              !animals.contains(value.toUpperCase())) {
-                            print(value.toUpperCase());
+                              !animals.contains(value.trim().toUpperCase())) {
+                            if (animals.length < 10) {
+                              throw ("fking dierenlijst klopt weer ni");
+                            }
+                            print(value.trim().toUpperCase());
                             return "Dit dier bestaat niet";
                           }
                           if (word == "NONE" && value.length > 0) return null;
                           if (value.length == 0) return "Voer een dier in";
                           if (value[0].toUpperCase() != lastLetter)
                             return "Voer een geldig dier in";
-                          if (allWords.contains(value.toUpperCase()))
+                          if (allWords.contains(value.trim().toUpperCase()))
                             return "Dit dier is al gezegd";
                           return value.length > 0 ? null : "Voer een dier in";
                         },
-                        onFieldSubmitted: (value) {
-                          if (formKey.currentState.validate() ||
-                              word == "NONE") {
-                            submitWord();
-                          }
-                        },
+                        onFieldSubmitted: (value) => submitWord(value.trim()),
                         textAlign: TextAlign.center,
                         keyboardType: TextInputType.text,
                         style: TextStyle(
@@ -365,12 +368,7 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                     ),
                     onPressed: _enabled
-                        ? () async {
-                            if (formKey.currentState.validate() ||
-                                word == "NONE") {
-                              submitWord();
-                            }
-                          }
+                        ? () => submitWord(wordController.text.trim())
                         : null,
                   ),
                 ],
@@ -380,7 +378,7 @@ class _GameScreenState extends State<GameScreen> {
               ),
         SizedBox(height: size.height * 0.03),
         Clock(
-          key: UniqueKey(),
+          key: Key(currentPlayerId + word),
           timeUp: () {
             if (_enabled &&
                 _playing &&
@@ -438,7 +436,7 @@ class _GameScreenState extends State<GameScreen> {
           }
         });
       }
-      if (newWord == "NONE" && _checkWords != checkWords) {
+      if (newWord == "NONE" && _checkWords != checkWords && mounted) {
         print("changing _checkWords");
         setState(() {
           _checkWords = checkWords;

@@ -26,6 +26,27 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
   TextEditingController nameController = TextEditingController();
   bool _loading = false;
 
+  joinGame(String value) async {
+    if (formKey.currentState.validate()) {
+      setState(() {
+        _loading = true;
+      });
+      var uid = Uuid().v4();
+      await StoreMethods().joinGame(pin, nameController.text.trim(), uid);
+      var currentUser = new UserModel(
+          alive: true,
+          userName: nameController.text.trim(),
+          uid: uid,
+          lastAnswer: "");
+      var args = {
+        "pin": pin,
+        "currentUser": currentUser,
+        "isHost": isHost,
+      };
+      navigatorKey.currentState.pushNamed("/gameScreen", arguments: args);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
@@ -61,29 +82,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
                             ? null
                             : "Enter a valid name";
                       },
-                      onFieldSubmitted: (value) async {
-                        if (formKey.currentState.validate()) {
-                          setState(() {
-                            _loading = true;
-                          });
-                          print("submitting");
-                          var uid = Uuid().v4();
-                          await StoreMethods()
-                              .joinGame(pin, nameController.text.trim(), uid);
-                          var currentUser = new UserModel(
-                              alive: true,
-                              userName: nameController.text.trim(),
-                              uid: uid,
-                              lastAnswer: "");
-                          var args = {
-                            "pin": pin,
-                            "currentUser": currentUser,
-                            "isHost": isHost,
-                          };
-                          navigatorKey.currentState
-                              .pushNamed("/gameScreen", arguments: args);
-                        }
-                      },
+                      onFieldSubmitted: (value) => joinGame(value),
                       maxLength: 20,
                       textAlign: TextAlign.center,
                       style: TextStyle(
@@ -120,29 +119,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
                         ),
                   onPressed: _loading
                       ? () {}
-                      : () async {
-                          if (formKey.currentState.validate()) {
-                            setState(() {
-                              _loading = true;
-                            });
-                            print("submitting");
-                            var uid = Uuid().v4();
-                            await StoreMethods()
-                                .joinGame(pin, nameController.text.trim(), uid);
-                            var currentUser = new UserModel(
-                                alive: true,
-                                userName: nameController.text.trim(),
-                                uid: uid,
-                                lastAnswer: "");
-                            var args = {
-                              "pin": pin,
-                              "currentUser": currentUser,
-                              "isHost": isHost,
-                            };
-                            navigatorKey.currentState
-                                .pushNamed("/gameScreen", arguments: args);
-                          }
-                        },
+                      : () => joinGame(nameController.text.trim()),
                 ),
               ],
             ),
