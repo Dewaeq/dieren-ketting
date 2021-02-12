@@ -97,7 +97,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
                   ),
                 ),
                 SizedBox(height: 20),
-                FlatButton(
+                MaterialButton(
                   color: backgroundColor,
                   height: 70,
                   minWidth: 250,

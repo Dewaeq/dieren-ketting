@@ -60,13 +60,22 @@ class _GameScreenState extends State<GameScreen> {
   String word = "NONE", winnerId = "NONE", currentPlayerId = "NONE";
 
   getAnimals() async {
-    var file = (await http.get("assets/data/data.txt")).body;
+    // var file = (await http.get("assets/data/data.txt")).body;
+    var file = (await http.get(
+            "https://raw.githubusercontent.com/Dewaeq/dieren-ketting/main/web/assets/data/data.txt"))
+        .body;
     var lines = file.split("\n");
+    List<String> toAdd = [];
     for (var line in lines) {
       if (line.trim() != "") {
-        animals.add(line.trim());
+        toAdd.add(line.trim());
       }
     }
+    if (toAdd.length < 10) throw ("Animal list not found 404");
+    for (var word in toAdd) print(word);
+    setState(() {
+      animals = toAdd;
+    });
   }
 
   kick(UserModel toKick) async {
@@ -245,7 +254,7 @@ class _GameScreenState extends State<GameScreen> {
           ),
           SizedBox(height: 80),
           isHost
-              ? FlatButton(
+              ? MaterialButton(
                   color: Colors.amber,
                   height: 70,
                   minWidth: 250,
@@ -321,10 +330,8 @@ class _GameScreenState extends State<GameScreen> {
                         validator: (value) {
                           var lastLetter = word[word.length - 1].toUpperCase();
                           if (_checkWords &&
+                              animals.length > 10 &&
                               !animals.contains(value.trim().toUpperCase())) {
-                            if (animals.length < 10) {
-                              throw ("fking dierenlijst klopt weer ni");
-                            }
                             print(value.trim().toUpperCase());
                             return "Dit dier bestaat niet";
                           }
@@ -350,7 +357,7 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                   ),
                   SizedBox(height: size.height * 0.05),
-                  FlatButton(
+                  MaterialButton(
                     color: backgroundColor,
                     disabledColor: Colors.red[200],
                     disabledTextColor: Colors.white70,
@@ -616,8 +623,8 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void initState() {
-    getAnimals();
     super.initState();
+    getAnimals();
     listenRoom();
     listenMembers();
     listenWords();
@@ -654,7 +661,7 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                       ),
                       SizedBox(height: 40),
-                      FlatButton(
+                      MaterialButton(
                         color: Colors.amber,
                         height: 70,
                         minWidth: 250,
@@ -754,7 +761,7 @@ class _GameScreenState extends State<GameScreen> {
                                       isHost
                                           ? Column(
                                               children: [
-                                                FlatButton(
+                                                MaterialButton(
                                                   color: Colors.amber,
                                                   height: 70,
                                                   minWidth: 250,

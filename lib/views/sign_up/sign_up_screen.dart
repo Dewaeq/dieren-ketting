@@ -159,7 +159,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                         ),
                         SizedBox(height: 20),
-                        FlatButton(
+                        MaterialButton(
                           color: backgroundColor,
                           height: 70,
                           minWidth: 250,
@@ -184,7 +184,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               : () => signUpForGame(pinController.text),
                         ),
                         SizedBox(height: 20),
-                        FlatButton(
+                        MaterialButton(
                           color: Colors.amber,
                           height: 70,
                           minWidth: 250,
@@ -239,7 +239,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         : Container(),
                     Positioned(
                       bottom: 20,
-                      child: FlatButton(
+                      child: MaterialButton(
                         onPressed: () {
                           js.context.callMethod('open',
                               ['https://www.github.com/dewaeq/dieren-ketting']);

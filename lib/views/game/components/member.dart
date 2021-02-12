@@ -67,7 +67,7 @@ class Member extends StatelessWidget {
               ? Container(
                   width: 50,
                   height: 50,
-                  child: FlatButton(
+                  child: MaterialButton(
                     onPressed: () {
                       kick(user);
                     },
