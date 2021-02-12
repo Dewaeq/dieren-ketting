@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dieren_ketting/model/user_model.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:uuid/uuid.dart';
 
 class StoreMethods {
   Random random = new Random();
@@ -164,6 +165,23 @@ class StoreMethods {
   Future<bool> setCheckWords(String pin, bool checkWords) async {
     await FirebaseFirestore.instance.collection("rooms").doc(pin).update({
       "checkWords": checkWords ? "TRUE" : "FALSE",
+    });
+    return true;
+  }
+
+  Future<bool> aproveWord(String pin, String value) async {
+    var docExists = await FirebaseFirestore.instance
+        .collection("aprove")
+        .where("word", isEqualTo: value)
+        .limit(1)
+        .get();
+    if (docExists.docs.isNotEmpty) return true;
+
+    var id = Uuid().v4();
+
+    await FirebaseFirestore.instance.collection("aprove").doc(value).set({
+      "id": id,
+      "word": value,
     });
     return true;
   }

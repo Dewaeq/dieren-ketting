@@ -72,7 +72,6 @@ class _GameScreenState extends State<GameScreen> {
       }
     }
     if (toAdd.length < 10) throw ("Animal list not found 404");
-    for (var word in toAdd) print(word);
     setState(() {
       animals = toAdd;
     });
@@ -132,6 +131,10 @@ class _GameScreenState extends State<GameScreen> {
       nextUser: nextUser,
     );
     wordController.text = "";
+  }
+
+  aproveWord(String value) async {
+    await StoreMethods().aproveWord(pin, value);
   }
 
   restartGame() async {
@@ -284,9 +287,6 @@ class _GameScreenState extends State<GameScreen> {
         ],
       );
     }
-
-    print("returning game");
-
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -329,14 +329,17 @@ class _GameScreenState extends State<GameScreen> {
                         enabled: _enabled,
                         validator: (value) {
                           var lastLetter = word[word.length - 1].toUpperCase();
+                          if (value.length == 0) return "Voer een dier in";
                           if (_checkWords &&
                               animals.length > 10 &&
                               !animals.contains(value.trim().toUpperCase())) {
-                            print(value.trim().toUpperCase());
+                            print("animal list does not contain " +
+                                value.trim().toUpperCase());
+                            print("submitting word for aproval...");
+                            aproveWord(value.trim().toUpperCase());
                             return "Dit dier bestaat niet";
                           }
                           if (word == "NONE" && value.length > 0) return null;
-                          if (value.length == 0) return "Voer een dier in";
                           if (value[0].toUpperCase() != lastLetter)
                             return "Voer een geldig dier in";
                           if (allWords.contains(value.trim().toUpperCase()))
