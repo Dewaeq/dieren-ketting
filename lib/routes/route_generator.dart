@@ -16,7 +16,6 @@ class RouteGenerator {
 
       case "/joinRoom":
         if (args is Map<String, dynamic>) {
-          print("fking host?: " + args['isHost'].toString());
           return MaterialPageRoute(
             builder: (_) => JoinGameScreen(
               pin: args['pin'],

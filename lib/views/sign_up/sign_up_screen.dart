@@ -25,17 +25,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
     });
     await Future.delayed(Duration(seconds: 3));
     String pin = await StoreMethods().createGame();
-    var args = new Map<String, dynamic>();
-    args['pin'] = pin;
-    args['isHost'] = true;
-    Map<String, dynamic> fuck = {
+    Map<String, dynamic> args = {
       "pin": pin,
       "isHost": true,
     };
-    print(fuck['isHost']);
     navigatorKey.currentState.pushNamed(
       "/joinRoom",
-      arguments: fuck,
+      arguments: args,
     );
   }
 
@@ -47,9 +43,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       print("joining");
       String pin = pinController.text;
       bool exists = await StoreMethods().checkForDocument("rooms", pin);
-      print(exists);
       if (exists) {
-        print("it exists");
         Map<String, dynamic> args = {
           "pin": pin,
           "isHost": false,
@@ -233,7 +227,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   ),
                                 ),
                               ],
-                              // ),
                             ),
                           )
                         : Container(),

@@ -60,7 +60,6 @@ class _GameScreenState extends State<GameScreen> {
   String word = "NONE", winnerId = "NONE", currentPlayerId = "NONE";
 
   getAnimals() async {
-    // var file = (await http.get("assets/data/data.txt")).body;
     var file = (await http.get(
             "https://raw.githubusercontent.com/Dewaeq/dieren-ketting/main/web/assets/data/data.txt"))
         .body;
@@ -79,7 +78,7 @@ class _GameScreenState extends State<GameScreen> {
 
   kick(UserModel toKick) async {
     if (currentPlayer != null && currentPlayer.uid == toKick.uid) {
-      var newCurrentPlayer = getNewPlayer();
+      var newCurrentPlayer = getNextPlayer();
       await setCurrentPlayer(newCurrentPlayer);
     }
     await StoreMethods().kickUser(pin, toKick);
@@ -119,10 +118,10 @@ class _GameScreenState extends State<GameScreen> {
 
   submitWord(String value) async {
     if (!formKey.currentState.validate()) return;
-    setState(() {
-      _enabled = false;
-    });
-    var nextUser = getNewPlayer();
+
+    setState(() => _enabled = false);
+
+    var nextUser = getNextPlayer();
 
     await StoreMethods().submitWord(
       word: value,
@@ -144,8 +143,10 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   dontKnowWord() async {
+    currentUser.alive = false;
+
     var alive = users.where((element) => element.alive == true).toList();
-    var nextUser = getNewPlayer();
+    var nextUser = getNextPlayer();
 
     var others = alive;
     others.removeWhere((element) => element.uid == currentUser.uid);
@@ -171,8 +172,8 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
-  UserModel getNewPlayer() {
-    var dead = users.where((e) => e.alive == false).toList();
+  UserModel getNextPlayer() {
+    var dead = users.where((e) => !e.alive).toList();
     List<String> deadUids = [];
     List<String> allUids = [];
     for (var user in dead) {
@@ -181,8 +182,11 @@ class _GameScreenState extends State<GameScreen> {
     for (var user in users) {
       allUids.add(user.uid);
     }
-    order.removeWhere((e) =>
-        (deadUids.contains(e) && e != currentUser.uid) || !allUids.contains(e));
+    order.removeWhere(
+      (e) =>
+          (deadUids.contains(e) && e != currentUser.uid) ||
+          !allUids.contains(e),
+    );
 
     int myIndex = order.indexOf(currentUser.uid);
     int newIndex = myIndex + 1;
@@ -210,20 +214,6 @@ class _GameScreenState extends State<GameScreen> {
         );
       },
     );
-    /* alive.sort((a, b) {
-            return a
-                .data()['userName']
-                .toString()
-                .toLowerCase()
-                .compareTo(b.data()['userName'].toString().toLowerCase());
-          });
-          dead.sort((a, b) {
-            return a
-                .data()['userName']
-                .toString()
-                .toLowerCase()
-                .compareTo(b.data()['userName'].toString().toLowerCase());
-          }); */
   }
 
   Widget game(Size size) {
@@ -239,7 +229,14 @@ class _GameScreenState extends State<GameScreen> {
         orElse: () => new UserModel(userName: "error"),
       );
       if (winner.userName == "error") {
-        return Text("error");
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text("error"),
+            isHost ? restartGameButton() : Container(),
+          ],
+        );
       }
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -256,34 +253,7 @@ class _GameScreenState extends State<GameScreen> {
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 65),
           ),
           SizedBox(height: 80),
-          isHost
-              ? MaterialButton(
-                  color: Colors.amber,
-                  height: 70,
-                  minWidth: 250,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: _restarting
-                      ? CircularProgressIndicator(
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        )
-                      : Text(
-                          "Restart Game",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 24,
-                          ),
-                        ),
-                  onPressed: _restarting
-                      ? () {}
-                      : () {
-                          restartGame();
-                        },
-                )
-              : Container()
+          isHost ? restartGameButton() : Container()
         ],
       );
     }
@@ -333,9 +303,6 @@ class _GameScreenState extends State<GameScreen> {
                           if (_checkWords &&
                               animals.length > 10 &&
                               !animals.contains(value.trim().toUpperCase())) {
-                            print("animal list does not contain " +
-                                value.trim().toUpperCase());
-                            print("submitting word for aproval...");
                             aproveWord(value.trim().toUpperCase());
                             return "Dit dier bestaat niet";
                           }
@@ -405,6 +372,34 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  Widget restartGameButton() {
+    return MaterialButton(
+      color: Colors.amber,
+      height: 70,
+      minWidth: 250,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: _restarting
+          ? CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            )
+          : Text(
+              "Restart Game",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+              ),
+            ),
+      onPressed: _restarting
+          ? () {}
+          : () {
+              restartGame();
+            },
+    );
+  }
+
   Widget words() {
     if (allWords.length == 0) return Container();
 
@@ -447,7 +442,6 @@ class _GameScreenState extends State<GameScreen> {
         });
       }
       if (newWord == "NONE" && _checkWords != checkWords && mounted) {
-        print("changing _checkWords");
         setState(() {
           _checkWords = checkWords;
         });
