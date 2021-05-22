@@ -20,10 +20,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _loading = false;
 
   createGame() async {
-    setState(() {
-      _creatingGame = true;
-    });
+    setState(() => _creatingGame = true);
+
     await Future.delayed(Duration(seconds: 3));
+
     String pin = await StoreMethods().createGame();
     Map<String, dynamic> args = {
       "pin": pin,
@@ -36,28 +36,27 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   signUpForGame(String value) async {
-    if (formKey.currentState.validate()) {
+    if (!formKey.currentState.validate()) return;
+
+    setState(() => _loading = true);
+
+    print("joining");
+    String pin = pinController.text;
+    bool exists = await StoreMethods().checkForDocument("rooms", pin);
+    if (exists) {
+      Map<String, dynamic> args = {
+        "pin": pin,
+        "isHost": false,
+      };
+      navigatorKey.currentState.pushNamed(
+        "/joinRoom",
+        arguments: args,
+      );
+    } else {
       setState(() {
-        _loading = true;
+        _loading = false;
+        _validate = true;
       });
-      print("joining");
-      String pin = pinController.text;
-      bool exists = await StoreMethods().checkForDocument("rooms", pin);
-      if (exists) {
-        Map<String, dynamic> args = {
-          "pin": pin,
-          "isHost": false,
-        };
-        navigatorKey.currentState.pushNamed(
-          "/joinRoom",
-          arguments: args,
-        );
-      } else {
-        setState(() {
-          _loading = false;
-          _validate = true;
-        });
-      }
     }
   }
 
@@ -126,11 +125,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             key: formKey,
                             child: TextFormField(
                               controller: pinController,
-                              validator: (value) {
-                                return value.replaceAll(' ', '').length == 6
-                                    ? null
-                                    : "Enter a valid code";
-                              },
+                              validator: (value) =>
+                                  value.replaceAll(' ', '').length == 6
+                                      ? null
+                                      : "Enter a valid code",
                               inputFormatters: <TextInputFormatter>[
                                 FilteringTextInputFormatter.allow(
                                     RegExp(r'[0-9]')),
@@ -139,9 +137,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               maxLength: 6,
                               keyboardType: TextInputType.number,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 24,
-                              ),
+                              style: TextStyle(fontSize: 24),
                               decoration: InputDecoration(
                                 errorText:
                                     _validate ? "Enter a valid code" : null,
@@ -193,9 +189,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               fontSize: 24,
                             ),
                           ),
-                          onPressed: () {
-                            createGame();
-                          },
+                          onPressed: () => createGame(),
                         ),
                         SizedBox(height: 70),
                       ],

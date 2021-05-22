@@ -32,9 +32,7 @@ class _ClockState extends State<Clock> {
           timer.cancel();
         });
       } else {
-        setState(() {
-          _start--;
-        });
+        setState(() => _start--);
       }
     });
     super.initState();

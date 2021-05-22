@@ -296,9 +296,7 @@ class _GameScreenState extends State<GameScreen> {
                 _started &&
                 currentPlayerId == currentUser.uid) {
               dontKnowWord();
-              setState(() {
-                _enabled = false;
-              });
+              setState(() => _enabled = false);
             }
           },
         ),

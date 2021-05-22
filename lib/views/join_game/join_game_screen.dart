@@ -1,10 +1,9 @@
+import 'package:dieren_ketting/main.dart';
 import 'package:dieren_ketting/model/constants.dart';
 import 'package:dieren_ketting/model/user_model.dart';
 import 'package:dieren_ketting/services/firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-
-import '../../main.dart';
 
 class JoinGameScreen extends StatefulWidget {
   final String pin;
@@ -27,24 +26,22 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
   bool _loading = false;
 
   joinGame(String value) async {
-    if (formKey.currentState.validate()) {
-      setState(() {
-        _loading = true;
-      });
-      var uid = Uuid().v4();
-      await StoreMethods().joinGame(pin, nameController.text.trim(), uid);
-      var currentUser = new UserModel(
-          alive: true,
-          userName: nameController.text.trim(),
-          uid: uid,
-          lastAnswer: "");
-      var args = {
-        "pin": pin,
-        "currentUser": currentUser,
-        "isHost": isHost,
-      };
-      navigatorKey.currentState.pushNamed("/gameScreen", arguments: args);
-    }
+    if (!formKey.currentState.validate()) return;
+    setState(() => _loading = true);
+
+    var uid = Uuid().v4();
+    await StoreMethods().joinGame(pin, nameController.text.trim(), uid);
+    var currentUser = new UserModel(
+        alive: true,
+        userName: nameController.text.trim(),
+        uid: uid,
+        lastAnswer: "");
+    var args = {
+      "pin": pin,
+      "currentUser": currentUser,
+      "isHost": isHost,
+    };
+    navigatorKey.currentState.pushNamed("/gameScreen", arguments: args);
   }
 
   @override
@@ -77,17 +74,13 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
                     key: formKey,
                     child: TextFormField(
                       controller: nameController,
-                      validator: (value) {
-                        return value.replaceAll(' ', '').length > 2
-                            ? null
-                            : "Enter a valid name";
-                      },
+                      validator: (value) => value.replaceAll(' ', '').length > 2
+                          ? null
+                          : "Enter a valid name",
                       onFieldSubmitted: (value) => joinGame(value),
                       maxLength: 20,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 24,
-                      ),
+                      style: TextStyle(fontSize: 24),
                       decoration: InputDecoration(
                         contentPadding: EdgeInsets.zero,
                         hintText: "Jan",
