@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'package:dieren_ketting/views/kicked/kicked_view.dart';
+import 'package:dieren_ketting/views/loading/loading_view.dart';
 import 'package:http/http.dart' as http;
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:dieren_ketting/main.dart';
 import 'package:dieren_ketting/model/constants.dart';
 import 'package:dieren_ketting/model/user_model.dart';
 import 'package:dieren_ketting/services/firestore.dart';
@@ -70,10 +71,8 @@ class _GameScreenState extends State<GameScreen> {
         toAdd.add(line.trim());
       }
     }
-    if (toAdd.length < 10) throw ("Animal list not found 404");
-    setState(() {
-      animals = toAdd;
-    });
+    if (toAdd.isEmpty) throw ("Animal list not found 404");
+    setState(() => animals = toAdd);
   }
 
   kick(UserModel toKick) async {
@@ -91,12 +90,28 @@ class _GameScreenState extends State<GameScreen> {
 
   setWinner(UserModel winner) async {
     await StoreMethods().setWinner(pin, winner);
-    WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {
-          winnerId = winner.uid;
-        }));
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => setState(() => winnerId = winner.uid));
   }
 
   startGame() async {
+    if (!_starting) return;
+
+    if (users.isEmpty) {
+      showToast(
+        'You need to be with at least 2 players, current: ${users.length}',
+        duration: Duration(seconds: 3),
+        position: ToastPosition.center,
+        backgroundColor: Colors.grey,
+        radius: 7,
+        textStyle: TextStyle(
+          fontSize: 24,
+          color: Colors.white,
+        ),
+      );
+      return;
+    }
+
     setState(() => _starting = true);
 
     await StoreMethods().restartGame(pin, users);
@@ -134,6 +149,20 @@ class _GameScreenState extends State<GameScreen> {
 
   aproveWord(String value) async {
     await StoreMethods().aproveWord(pin, value);
+  }
+
+  toggleCheckWords(bool value) async {
+    setState(() => _loading = true);
+
+    await StoreMethods().setCheckWords(pin, value);
+    await Future.delayed(Duration(
+      seconds: 1,
+      milliseconds: 300,
+    ));
+    setState(() {
+      _checkWords = value;
+      _loading = false;
+    });
   }
 
   restartGame() async {
@@ -224,38 +253,7 @@ class _GameScreenState extends State<GameScreen> {
     }
 
     if (winnerId != "NONE") {
-      var winner = users.firstWhere(
-        (element) => element.uid == winnerId,
-        orElse: () => new UserModel(userName: "error"),
-      );
-      if (winner.userName == "error") {
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text("error"),
-            isHost ? restartGameButton() : Container(),
-          ],
-        );
-      }
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            "Winnaar:",
-            textAlign: TextAlign.center,
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 34),
-          ),
-          Text(
-            winner.userName,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 65),
-          ),
-          SizedBox(height: 80),
-          isHost ? restartGameButton() : Container()
-        ],
-      );
+      return winnerUi();
     }
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -285,71 +283,7 @@ class _GameScreenState extends State<GameScreen> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 28),
         ),
         _playing
-            ? Column(
-                children: [
-                  SizedBox(height: size.height * 0.05),
-                  Container(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: size.width * 0.05),
-                    alignment: Alignment.center,
-                    child: Form(
-                      key: formKey,
-                      child: TextFormField(
-                        controller: wordController,
-                        enabled: _enabled,
-                        validator: (value) {
-                          var lastLetter = word[word.length - 1].toUpperCase();
-                          if (value.length == 0) return "Voer een dier in";
-                          if (_checkWords &&
-                              animals.length > 10 &&
-                              !animals.contains(value.trim().toUpperCase())) {
-                            aproveWord(value.trim().toUpperCase());
-                            return "Dit dier bestaat niet";
-                          }
-                          if (word == "NONE" && value.length > 0) return null;
-                          if (value[0].toUpperCase() != lastLetter)
-                            return "Voer een geldig dier in";
-                          if (allWords.contains(value.trim().toUpperCase()))
-                            return "Dit dier is al gezegd";
-                          return value.length > 0 ? null : "Voer een dier in";
-                        },
-                        onFieldSubmitted: (value) => submitWord(value.trim()),
-                        textAlign: TextAlign.center,
-                        keyboardType: TextInputType.text,
-                        style: TextStyle(
-                          fontSize: 24,
-                        ),
-                        decoration: InputDecoration(
-                          contentPadding: EdgeInsets.zero,
-                          hintText: "Jouw dier",
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: size.height * 0.05),
-                  MaterialButton(
-                    color: backgroundColor,
-                    disabledColor: Colors.red[200],
-                    disabledTextColor: Colors.white70,
-                    height: 70,
-                    minWidth: size.width * 0.18,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Text(
-                      "Submit",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 24,
-                      ),
-                    ),
-                    onPressed: _enabled
-                        ? () => submitWord(wordController.text.trim())
-                        : null,
-                  ),
-                ],
-              )
+            ? playingUi(size)
             : Center(
                 child: Text("Wachten op ${currentPlayer.userName}"),
               ),
@@ -368,6 +302,191 @@ class _GameScreenState extends State<GameScreen> {
             }
           },
         ),
+      ],
+    );
+  }
+
+  Widget playingUi(size) {
+    return Column(
+      children: [
+        SizedBox(height: size.height * 0.05),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
+          alignment: Alignment.center,
+          child: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: wordController,
+              enabled: _enabled,
+              validator: (value) {
+                var lastLetter = word[word.length - 1].toUpperCase();
+                if (value.length == 0) return "Voer een dier in";
+                if (_checkWords &&
+                    animals.length > 10 &&
+                    !animals.contains(value.trim().toUpperCase())) {
+                  aproveWord(value.trim().toUpperCase());
+                  return "Dit dier bestaat niet";
+                }
+                if (word == "NONE" && value.length > 0) return null;
+                if (value[0].toUpperCase() != lastLetter)
+                  return "Voer een geldig dier in";
+                if (allWords.contains(value.trim().toUpperCase()))
+                  return "Dit dier is al gezegd";
+                return value.length > 0 ? null : "Voer een dier in";
+              },
+              onFieldSubmitted: (value) => submitWord(value.trim()),
+              textAlign: TextAlign.center,
+              keyboardType: TextInputType.text,
+              style: TextStyle(
+                fontSize: 24,
+              ),
+              decoration: InputDecoration(
+                contentPadding: EdgeInsets.zero,
+                hintText: "Jouw dier",
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: size.height * 0.05),
+        MaterialButton(
+          color: backgroundColor,
+          disabledColor: Colors.red[200],
+          disabledTextColor: Colors.white70,
+          height: 70,
+          minWidth: size.width * 0.18,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Text(
+            "Submit",
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 24,
+            ),
+          ),
+          onPressed:
+              _enabled ? () => submitWord(wordController.text.trim()) : null,
+        ),
+      ],
+    );
+  }
+
+  Widget winnerUi() {
+    var winner = users.firstWhere(
+      (element) => element.uid == winnerId,
+      orElse: () => new UserModel(userName: "error"),
+    );
+    if (winner.userName == "error") {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text("error"),
+          isHost ? restartGameButton() : Container(),
+        ],
+      );
+    }
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          "Winnaar:",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 34),
+        ),
+        Text(
+          winner.userName,
+          textAlign: TextAlign.center,
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 65),
+        ),
+        SizedBox(height: 80),
+        isHost ? restartGameButton() : Container()
+      ],
+    );
+  }
+
+  Widget startGameUi() {
+    return Column(
+      children: [
+        MaterialButton(
+          color: Colors.amber,
+          height: 70,
+          minWidth: 250,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: _starting
+              ? CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                )
+              : Text(
+                  "Start Game",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24,
+                  ),
+                ),
+          onPressed: () => startGame(),
+        ),
+        SizedBox(height: 50),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "Check if animal exists: ",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(width: 10),
+            Switch(
+              value: _checkWords,
+              activeColor: backgroundColor,
+              onChanged: (value) => toggleCheckWords(value),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget waitingUi() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          "Code:",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 34),
+        ),
+        Text(
+          pin,
+          textAlign: TextAlign.center,
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 65),
+        ),
+        SizedBox(height: 80),
+        SizedBox(
+          height: 90,
+          width: 90,
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(backgroundColor),
+          ),
+        ),
+        SizedBox(height: 60),
+        Text(
+          "Waiting for other players...",
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        SizedBox(height: 90),
+        isHost ? startGameUi() : Container(),
       ],
     );
   }
@@ -442,9 +561,7 @@ class _GameScreenState extends State<GameScreen> {
         });
       }
       if (newWord == "NONE" && _checkWords != checkWords && mounted) {
-        setState(() {
-          _checkWords = checkWords;
-        });
+        setState(() => _checkWords = checkWords);
       }
 
       if (users.length == 0 || newCurrentPlayerId == "NONE") {
@@ -452,18 +569,14 @@ class _GameScreenState extends State<GameScreen> {
       }
 
       if (newWord != "NONE" && newWord != word) {
-        setState(() {
-          word = newWord;
-        });
+        setState(() => word = newWord);
       }
       if (newWinnerId != "NONE" && newWinnerId != winnerId) {
-        setState(() {
-          winnerId = newWinnerId;
-        });
+        setState(() => winnerId = newWinnerId);
       }
       var newCurrentPlayer = users.firstWhere(
           (e) => e.uid == newCurrentPlayerId,
-          orElse: () => throw ("fuck dit"));
+          orElse: () => throw ("couldn't find new player in local database"));
       if (newCurrentPlayer.userName == "won_game_won") return;
 
       if (_playing && currentUser.uid != newCurrentPlayerId) {
@@ -489,15 +602,11 @@ class _GameScreenState extends State<GameScreen> {
 
       String orderString = event.data()['order'];
       if (orderString == "NONE") {
-        setState(() {
-          order.clear();
-        });
+        setState(() => order.clear());
       } else {
         List<String> newOrder = orderString.split('|');
         if (newOrder != order) {
-          setState(() {
-            order = newOrder;
-          });
+          setState(() => order = newOrder);
         }
       }
       if (!_started) {
@@ -550,9 +659,7 @@ class _GameScreenState extends State<GameScreen> {
         }
       }
       if (toAdd.length > 0) {
-        setState(() {
-          allWords += toAdd;
-        });
+        setState(() => allWords.addAll(toAdd));
       }
     });
   }
@@ -603,16 +710,14 @@ class _GameScreenState extends State<GameScreen> {
 
       if (toRemove.contains(currentUser.uid) &&
           !toAddUids.contains(currentUser.uid)) {
-        setState(() {
-          _kicked = true;
-        });
+        setState(() => _kicked = true);
         return;
       }
 
       if (toAdd.length > 0 || delete) {
         setState(() {
           users.removeWhere((e) => toRemove.contains(e.uid));
-          users += toAdd;
+          users.addAll(toAdd);
         });
       }
     });
@@ -640,46 +745,7 @@ class _GameScreenState extends State<GameScreen> {
             width: double.infinity,
             alignment: Alignment.center,
             child: _kicked
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        size: 40,
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        "Kicked by host",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 40),
-                      MaterialButton(
-                        color: Colors.amber,
-                        height: 70,
-                        minWidth: 250,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: Text(
-                          "Quit",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 24,
-                          ),
-                        ),
-                        onPressed: () {
-                          navigatorKey.currentState
-                              .pushReplacementNamed("/signUp");
-                        },
-                      ),
-                    ],
-                  )
+                ? KickedView()
                 : Row(
                     children: [
                       Container(
@@ -711,185 +777,17 @@ class _GameScreenState extends State<GameScreen> {
                         child: words(),
                       ),
                       Container(
-                          width: size.width * 0.6,
-                          height: size.height,
-                          alignment: Alignment.center,
-                          child: SingleChildScrollView(
-                            child: _started
-                                ? game(size)
-                                : Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        "Code:",
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 34),
-                                      ),
-                                      Text(
-                                        pin,
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 65),
-                                      ),
-                                      SizedBox(height: 80),
-                                      SizedBox(
-                                        height: 90,
-                                        width: 90,
-                                        child: CircularProgressIndicator(
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                                  backgroundColor),
-                                        ),
-                                      ),
-                                      SizedBox(height: 60),
-                                      Text(
-                                        "Waiting for other players...",
-                                        style: TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      SizedBox(height: 90),
-                                      isHost
-                                          ? Column(
-                                              children: [
-                                                MaterialButton(
-                                                  color: Colors.amber,
-                                                  height: 70,
-                                                  minWidth: 250,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            30),
-                                                  ),
-                                                  child: _starting
-                                                      ? CircularProgressIndicator(
-                                                          valueColor:
-                                                              AlwaysStoppedAnimation<
-                                                                      Color>(
-                                                                  Colors.white),
-                                                        )
-                                                      : Text(
-                                                          "Start Game",
-                                                          style: TextStyle(
-                                                            color: Colors.white,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            fontSize: 24,
-                                                          ),
-                                                        ),
-                                                  onPressed: _starting
-                                                      ? () {}
-                                                      : () {
-                                                          if (users.length >
-                                                              1) {
-                                                            startGame();
-                                                          } else {
-                                                            showToast(
-                                                              'You need to be with at least 2 players, current: ${users.length}',
-                                                              duration:
-                                                                  Duration(
-                                                                      seconds:
-                                                                          3),
-                                                              position:
-                                                                  ToastPosition
-                                                                      .center,
-                                                              backgroundColor:
-                                                                  Colors.grey,
-                                                              radius: 7,
-                                                              textStyle:
-                                                                  TextStyle(
-                                                                fontSize: 24,
-                                                                color: Colors
-                                                                    .white,
-                                                              ),
-                                                            );
-                                                          }
-                                                        },
-                                                ),
-                                                SizedBox(height: 50),
-                                                Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    Text(
-                                                      "Check if animal exists: ",
-                                                      style: TextStyle(
-                                                        fontSize: 22,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                    SizedBox(width: 10),
-                                                    Switch(
-                                                      value: _checkWords,
-                                                      activeColor:
-                                                          backgroundColor,
-                                                      onChanged: (value) async {
-                                                        setState(() {
-                                                          _loading = true;
-                                                        });
-                                                        await StoreMethods()
-                                                            .setCheckWords(
-                                                                pin, value);
-                                                        await Future.delayed(
-                                                            Duration(
-                                                          seconds: 1,
-                                                          milliseconds: 300,
-                                                        ));
-                                                        setState(() {
-                                                          _checkWords = value;
-                                                          _loading = false;
-                                                        });
-                                                      },
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            )
-                                          : Container(),
-                                    ],
-                                  ),
-                          )),
+                        width: size.width * 0.6,
+                        height: size.height,
+                        alignment: Alignment.center,
+                        child: SingleChildScrollView(
+                          child: _started ? game(size) : waitingUi(),
+                        ),
+                      ),
                     ],
                   ),
           ),
-          _loading
-              ? Container(
-                  height: size.height,
-                  color: Colors.grey.withOpacity(.7),
-                  alignment: Alignment.center,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.max,
-                    children: [
-                      SizedBox(
-                        height: 120,
-                        width: 120,
-                        child: CircularProgressIndicator(
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(backgroundColor),
-                        ),
-                      ),
-                      SizedBox(height: 50),
-                      Text(
-                        "Loading",
-                        style: TextStyle(
-                          fontSize: 38,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                    // ),
-                  ),
-                )
-              : Container()
+          _loading ? LoadingView() : Container()
         ],
       ),
     );
